@@ -54,7 +54,11 @@ async def process_successful_payment(session, user_id: int, plan_days: int, amou
     # Get user telegram_id for RemnaWave
     user_stmt = select(User).where(User.id == user_id)
     user_res = await session.execute(user_stmt)
-    user = user_res.scalar_one()
+    user = user_res.scalar_one_or_none()
+    
+    if not user:
+        logger.error(f"User {user_id} not found during payment processing")
+        return False
 
     vpn_data = await vpn_service.create_vpn_user(user.telegram_id, expire_at=int(end_date.timestamp()))
     
@@ -123,7 +127,7 @@ async def check_expirations():
                     logger.info(f"Subscription {sub.id} expired for user {sub.user_id}")
                     sub.status = SubscriptionStatus.EXPIRED
                     
-                    vpn_stmt = select(VPNKey).where(VPNKey.user_id == sub.user_id)
+                    vpn_stmt = select(VPNKey).where(VPNKey.user_id == sub.user_id).order_by(VPNKey.expire_at.desc()).limit(1)
                     vpn_res = await session.execute(vpn_stmt)
                     vpn_key = vpn_res.scalar_one_or_none()
                     

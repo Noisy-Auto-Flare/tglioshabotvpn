@@ -33,14 +33,12 @@ class RemnaWaveService:
         """Attempts a single request with a specific auth method."""
         headers = self._get_auth_headers(auth_method)
         try:
-            logger.info(f"Trying auth method {auth_method}: {method} {url}")
+            logger.info(f"Request: {method} {url} with {auth_method}")
+            # Use a slightly longer timeout for the first connection
             response = await client.request(method, url, json=data, headers=headers, follow_redirects=True)
             
-            # Log full response details for debugging
-            logger.info(f"Response Status: {response.status_code}")
-            logger.info(f"Response Headers: {dict(response.headers)}")
-            logger.info(f"Response Body: {response.text[:500]}") # Log first 500 chars
-
+            logger.info(f"Response from {url}: {response.status_code}")
+            
             if response.is_success:
                 self._working_auth_method = auth_method
                 try:
@@ -48,30 +46,72 @@ class RemnaWaveService:
                 except json.JSONDecodeError:
                     return {"success": True, "data": response.text, "status_code": response.status_code}
             
+            # If 404, maybe the endpoint is wrong
+            if response.status_code == 404:
+                logger.warning(f"Endpoint not found: {url}")
+            
             return {"success": False, "status_code": response.status_code, "error": response.text}
+        except httpx.ConnectError as e:
+            logger.error(f"Connection error to {url}: {str(e)}")
+            return {"success": False, "error": f"Connection error: {str(e)}", "type": "connection_error"}
+        except httpx.RemoteProtocolError as e:
+            logger.error(f"Protocol error (server disconnected) from {url}: {str(e)}")
+            return {"success": False, "error": "Server disconnected", "type": "protocol_error"}
         except Exception as e:
-            logger.error(f"Request failed with {auth_method}: {str(e)}")
+            logger.error(f"Request failed to {url} with {auth_method}: {str(e)}")
             return None
 
     async def _request(self, method: str, endpoint: str, data: Optional[Dict[str, Any]] = None, retries: int = 3) -> Dict[str, Any]:
-        url = f"{self.api_url}/{endpoint.lstrip('/')}"
+        # Clean up base URL
+        base_url = self.api_url.rstrip("/")
+        
+        # Clean up endpoint
+        clean_endpoint = endpoint.lstrip("/")
+        
+        # Avoid double /api/ in the URL
+        if base_url.endswith("/api"):
+            if clean_endpoint.startswith("api/"):
+                clean_endpoint = clean_endpoint[4:]
+        elif "/api/" not in base_url and not base_url.endswith("/api"):
+            # If base_url doesn't have /api at all, and endpoint doesn't start with it, 
+            # maybe we should add it? But let's trust the provided endpoints for now.
+            pass
+            
+        url = f"{base_url}/{clean_endpoint}"
         last_error = "Unknown error"
         
-        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+        # Use a single client for all retries to benefit from connection pooling
+        async with httpx.AsyncClient(
+            timeout=15.0, 
+            follow_redirects=True, 
+            verify=False,
+            # Explicitly use HTTP/1.1 to avoid some protocol errors with certain panels
+            http2=False 
+        ) as client:
             for attempt in range(1, retries + 1):
                 # 1. Use working method if known
                 auth_methods = [self._working_auth_method] if self._working_auth_method else ["Bearer", "Token", "X-API-Key"]
                 
                 for auth_method in auth_methods:
                     result = await self._try_request(client, method, url, auth_method, data)
-                    if result and result["success"]:
+                    
+                    if result and result.get("success"):
                         return result
+                    
                     if result:
-                        last_error = f"Auth {auth_method} failed: {result.get('status_code')} - {result.get('error')}"
+                        # If we got a connection error or protocol error, maybe try switching http/https?
+                        if result.get("type") in ["connection_error", "protocol_error"] and url.startswith("https://"):
+                            alt_url = url.replace("https://", "http://")
+                            logger.info(f"Retrying with HTTP: {alt_url}")
+                            alt_result = await self._try_request(client, method, alt_url, auth_method, data)
+                            if alt_result and alt_result.get("success"):
+                                return alt_result
+                        
+                        last_error = f"Auth {auth_method} failed: {result.get('status_code', 'ERR')} - {result.get('error')}"
                 
                 if attempt < retries:
                     wait_time = 2 ** attempt
-                    logger.info(f"Retrying in {wait_time}s...")
+                    logger.info(f"Retrying request to {url} in {wait_time}s (attempt {attempt}/{retries})...")
                     await asyncio.sleep(wait_time)
             
         return {"success": False, "error": last_error}

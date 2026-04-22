@@ -94,23 +94,26 @@ async def health_check():
 @app.get("/debug/vpn/{user_id}")
 async def debug_vpn(user_id: int, db: AsyncSession = Depends(get_db)):
     """Debug endpoint to check VPN status for a user."""
+    from sqlalchemy import select
+    from backend.models.models import User, Subscription, VPNKey
+    from backend.services.vpn import vpn_service
+
     # Find internal user ID if telegram ID is provided
     user_stmt = select(User).where((User.id == user_id) | (User.telegram_id == user_id))
     user_res = await db.execute(user_stmt)
     user = user_res.scalar_one_or_none()
     
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    # Get all VPN keys for user
-    vpn_stmt = select(VPNKey).where(VPNKey.user_id == user.id).order_by(VPNKey.expire_at.desc())
-    vpn_res = await db.execute(vpn_stmt)
-    vpn_keys = vpn_res.scalars().all()
-    
-    # Get all subscriptions for user
+        return {"error": "User not found"}
+        
+    # Get sub and key
     sub_stmt = select(Subscription).where(Subscription.user_id == user.id).order_by(Subscription.end_date.desc())
     sub_res = await db.execute(sub_stmt)
     subs = sub_res.scalars().all()
+    
+    key_stmt = select(VPNKey).where(VPNKey.user_id == user.id).order_by(VPNKey.expire_at.desc())
+    key_res = await db.execute(key_stmt)
+    keys = key_res.scalars().all()
     
     return {
         "user": {
@@ -119,25 +122,26 @@ async def debug_vpn(user_id: int, db: AsyncSession = Depends(get_db)):
             "balance": user.balance
         },
         "subscriptions": [
-            {
-                "id": s.id,
-                "plan": s.plan,
-                "status": s.status,
-                "end_date": s.end_date
-            } for s in subs
+            {"id": s.id, "plan": s.plan, "status": s.status, "end_date": s.end_date} 
+            for s in subs
         ],
         "vpn_keys": [
             {
-                "id": v.id,
-                "subscription_id": v.subscription_id,
-                "uuid": v.uuid,
-                "is_active": v.is_active,
-                "expire_at": v.expire_at,
-                "error_message": v.error_message,
-                "config_preview": v.config[:50] + "..." if v.config else None
-            } for v in vpn_keys
+                "id": k.id, 
+                "is_active": k.is_active, 
+                "error": k.error_message, 
+                "expire_at": k.expire_at,
+                "uuid": k.uuid
+            } 
+            for k in keys
         ]
     }
+
+@app.get("/debug/remnawave")
+async def debug_remnawave():
+    """Debug endpoint to test RemnaWave panel connectivity."""
+    from backend.services.vpn import vpn_service
+    return await vpn_service.debug_remnawave()
 
 if __name__ == "__main__":
     import uvicorn
