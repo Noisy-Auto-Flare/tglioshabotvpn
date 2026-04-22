@@ -198,19 +198,9 @@ class RemnaWaveService:
             data = response.json()
             inner = data.get("response", data) if isinstance(data, dict) else {}
             short_uuid = inner.get("shortUuid")
-            user_uuid = inner.get("uuid")
             if not short_uuid:
                 logger.error("RemnaWave create user response missing shortUuid: %s", data)
                 return None
-
-            if settings.REMNAWAVE_DEFAULT_SQUAD_UUID and user_uuid:
-                added = self.add_user_to_squad(user_uuid, settings.REMNAWAVE_DEFAULT_SQUAD_UUID)
-                if not added:
-                    logger.error(
-                        "Failed to add user %s to squad %s",
-                        user_uuid,
-                        settings.REMNAWAVE_DEFAULT_SQUAD_UUID
-                    )
 
             if inner.get("subscriptionUrl"):
                 return inner["subscriptionUrl"]

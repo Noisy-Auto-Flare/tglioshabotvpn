@@ -264,7 +264,7 @@ async def process_plan_selection(callback: CallbackQuery, db: AsyncSession):
 
         # Paid plans
         plans = {
-            "30": {"price": 5, "gb": 30},
+            "30": {"price": 5, "gb": 90},
             "90": {"price": 12, "gb": 90},
             "180": {"price": 20, "gb": 180},
             "360": {"price": 35, "gb": 360},
