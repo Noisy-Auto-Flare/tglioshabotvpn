@@ -18,12 +18,26 @@ async def run_migrations(engine: AsyncEngine):
         if "subscription_id" not in columns:
             logger.info("Migration: Adding subscription_id column to vpn_keys table...")
             try:
-                # SQLite doesn't support ADD COLUMN with FOREIGN KEY directly in ALTER TABLE 
-                # but it allows adding the column. We can add it as an Integer.
-                # Since foreign_keys=ON is set, it will still enforce it if we declare it correctly.
                 await conn.execute(text("ALTER TABLE vpn_keys ADD COLUMN subscription_id INTEGER REFERENCES subscriptions(id)"))
                 logger.info("Migration: subscription_id added successfully.")
             except Exception as e:
                 logger.error(f"Migration failed for vpn_keys.subscription_id: {e}")
+
+        if "is_active" not in columns:
+            logger.info("Migration: Adding is_active column to vpn_keys table...")
+            try:
+                # SQLite: default 1 (True)
+                await conn.execute(text("ALTER TABLE vpn_keys ADD COLUMN is_active BOOLEAN DEFAULT 1"))
+                logger.info("Migration: is_active added successfully.")
+            except Exception as e:
+                logger.error(f"Migration failed for vpn_keys.is_active: {e}")
+
+        if "error_message" not in columns:
+            logger.info("Migration: Adding error_message column to vpn_keys table...")
+            try:
+                await conn.execute(text("ALTER TABLE vpn_keys ADD COLUMN error_message TEXT"))
+                logger.info("Migration: error_message added successfully.")
+            except Exception as e:
+                logger.error(f"Migration failed for vpn_keys.error_message: {e}")
 
         # Add any other missing columns here if needed in the future
