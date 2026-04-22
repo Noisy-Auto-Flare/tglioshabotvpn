@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.core.config import settings
 from db.session import get_db, AsyncSessionLocal, engine
 from db.base import Base
+from db.migrations import run_migrations
 import backend.models.models # Import models to register them with Base
 from backend.services.payments import cryptobot_service
 from backend.services.tasks import check_expirations, payment_polling, process_successful_payment, vpn_retry_task
@@ -24,7 +25,11 @@ async def lifespan(app: FastAPI):
     # Initialize database tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    logger.info("Database tables initialized.")
+    
+    # Run manual migrations for SQLite
+    await run_migrations(engine)
+    
+    logger.info("Database tables and schema initialized.")
 
     # Start background tasks
     tasks = []

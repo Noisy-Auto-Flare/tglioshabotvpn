@@ -8,6 +8,7 @@ from aiogram.types import TelegramObject
 from backend.core.config import settings
 from db.session import AsyncSessionLocal, engine
 from db.base import Base
+from db.migrations import run_migrations
 import backend.models.models
 from bot.handlers.handlers import router
 
@@ -29,7 +30,11 @@ async def main():
     # Initialize database tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    logger.info("Database tables initialized.")
+    
+    # Run manual migrations for SQLite
+    await run_migrations(engine)
+    
+    logger.info("Database tables and schema initialized.")
 
     bot_token = settings.BOT_TOKEN
     if not bot_token:
