@@ -105,6 +105,21 @@ To backup your database every 6 hours, add this to your `crontab -e`:
 This usually happens if multiple processes try to write to SQLite simultaneously. 
 *   **Fix**: Our project uses **WAL Mode** and **Async** access to minimize this. If it persists, ensure you aren't running multiple instances of the backend.
 
+### 🌐 RemnaWave VPN Issues
+If VPN keys are not appearing or show an error:
+1.  **Check API Key**: Ensure `REMNAWAVE_API_KEY` is a valid JWT token or API key from your panel.
+2.  **Auth Methods**: The bot automatically tries 3 different authentication methods:
+    - `Bearer <token>` (Standard JWT)
+    - `<token>` (Direct token)
+    - `X-API-Key: <token>` (Custom header)
+3.  **Cloudflare/WAF**: If your panel is behind Cloudflare, it might block the bot. The bot uses a browser-like `User-Agent` to minimize this, but you may need to whitelist your VPS IP in Cloudflare.
+4.  **Endpoint Compatibility**: The bot tests multiple endpoints (`/users`, `/api/users`, `/api/clients`, `/api/client/add`) to ensure compatibility with different RemnaWave versions.
+5.  **Logs**: Check detailed VPN logs for the exact error:
+    ```bash
+    docker-compose logs -f backend | grep RemnaWave
+    ```
+6.  **Mock Fallback**: If the API is completely down, the bot will still generate a "Mock" config so the user's profile isn't empty, and will retry in the background every minute.
+
 ### 💸 Payment not confirmed
 *   If using **Webhooks**: Ensure your `WEBHOOK_URL` is correct, uses `https`, and is accessible from the internet.
 *   If using **Polling**: Ensure `USE_WEBHOOK=False` in your `.env`.

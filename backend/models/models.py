@@ -41,17 +41,22 @@ class Subscription(Base):
     status: Mapped[SubscriptionStatus] = mapped_column(String, default=SubscriptionStatus.ACTIVE)
 
     user: Mapped["User"] = relationship(back_populates="subscriptions")
+    vpn_key: Mapped[Optional["VPNKey"]] = relationship(back_populates="subscription", cascade="all, delete-orphan")
 
 class VPNKey(Base):
     __tablename__ = "vpn_keys"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    uuid: Mapped[str] = mapped_column(String, unique=True, index=True)
+    subscription_id: Mapped[Optional[int]] = mapped_column(ForeignKey("subscriptions.id"))
+    uuid: Mapped[Optional[str]] = mapped_column(String, unique=True, index=True)
     config: Mapped[str] = mapped_column(Text)
     expire_at: Mapped[datetime] = mapped_column(DateTime)
+    is_active: Mapped[bool] = mapped_column(default=True)
+    error_message: Mapped[Optional[str]] = mapped_column(String)
 
     user: Mapped["User"] = relationship(back_populates="vpn_keys")
+    subscription: Mapped[Optional["Subscription"]] = relationship(back_populates="vpn_key")
 
 class Payment(Base):
     __tablename__ = "payments"

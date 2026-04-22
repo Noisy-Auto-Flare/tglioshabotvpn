@@ -75,21 +75,25 @@ async def process_profile(message: Message, db: AsyncSession):
             return await message.answer("Пожалуйста, используйте /start для регистрации.")
         
         # Get active subscription
+        now = datetime.now()
         sub_stmt = select(Subscription).where(
             Subscription.user_id == user.id,
-            Subscription.status == SubscriptionStatus.ACTIVE
+            Subscription.status == SubscriptionStatus.ACTIVE,
+            Subscription.end_date > now
         ).order_by(Subscription.end_date.desc()).limit(1)
         sub_result = await db.execute(sub_stmt)
         sub = sub_result.scalar_one_or_none()
         
-        # Get VPN config
-        vpn_stmt = select(VPNKey).where(VPNKey.user_id == user.id)
+        # Get latest active VPN key for this user
+        vpn_stmt = select(VPNKey).where(
+            VPNKey.user_id == user.id,
+            VPNKey.expire_at > now
+        ).order_by(VPNKey.expire_at.desc()).limit(1)
         vpn_result = await db.execute(vpn_stmt)
         vpn_key = vpn_result.scalar_one_or_none()
         
         status_text = "❌ Нет активной подписки"
         if sub:
-            now = datetime.now()
             remaining = sub.end_date - now
             days = remaining.days
             status_text = f"✅ Активна до: {sub.end_date.strftime('%d.%m.%Y %H:%M')}\nОсталось дней: {max(0, days)}"
@@ -102,7 +106,10 @@ async def process_profile(message: Message, db: AsyncSession):
         )
         
         if vpn_key:
-            profile_text += f"\n🔑 VPN Ключ:\n<code>{vpn_key.config}</code>"
+            if vpn_key.is_active:
+                profile_text += f"\n🔑 VPN Ключ:\n<code>{vpn_key.config}</code>"
+            else:
+                profile_text += f"\n🔑 VPN Ключ:\n<code>⚠️ Ключ временно недоступен, попробуйте позже</code>"
         
         await message.answer(profile_text, parse_mode="HTML")
     except Exception as e:
