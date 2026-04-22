@@ -42,6 +42,24 @@ class RemnaWaveService:
             headers["Cookie"] = settings.REMNAWAVE_COOKIE
         return headers
 
+    def _deep_find_first(self, obj: Any, keys: List[str]) -> Optional[Any]:
+        """Recursively finds first non-empty value by key name in nested dict/list."""
+        if isinstance(obj, dict):
+            for k in keys:
+                val = obj.get(k)
+                if val:
+                    return val
+            for v in obj.values():
+                found = self._deep_find_first(v, keys)
+                if found:
+                    return found
+        elif isinstance(obj, list):
+            for item in obj:
+                found = self._deep_find_first(item, keys)
+                if found:
+                    return found
+        return None
+
     def _get_auth_headers(self, method: str) -> Dict[str, str]:
         """Returns headers for a specific auth method."""
         headers = self.base_headers.copy()
@@ -206,26 +224,37 @@ class RemnaWaveService:
 
             data = response.json()
             inner = data.get("response", data) if isinstance(data, dict) else {}
-            user_uuid = (
-                inner.get("uuid")
-                or (inner.get("user") or {}).get("uuid")
-                or (inner.get("response") or {}).get("uuid")
-            )
-            short_uuid = inner.get("shortUuid")
+            user_uuid = self._deep_find_first(inner, ["uuid"])
+            short_uuid = self._deep_find_first(inner, ["shortUuid"])
             if not short_uuid:
                 logger.error("RemnaWave create user response missing shortUuid: %s", data)
                 return None
 
             # Force squad assignment with PATCH (as in manual curl flow),
             # even when activeInternalSquads was already passed in POST payload.
-            if settings.REMNAWAVE_DEFAULT_SQUAD_UUID and user_uuid:
-                patch_ok = self.add_user_to_squad(user_uuid, settings.REMNAWAVE_DEFAULT_SQUAD_UUID)
-                if not patch_ok:
-                    logger.error(
-                        "Squad PATCH failed for user_uuid=%s squad_uuid=%s",
-                        user_uuid,
+            if not settings.REMNAWAVE_DEFAULT_SQUAD_UUID:
+                logger.error("REMNAWAVE_DEFAULT_SQUAD_UUID is empty, skipping squad assignment")
+            else:
+                patch_target_uuid = user_uuid or short_uuid
+                if not patch_target_uuid:
+                    logger.error("Cannot PATCH squad: user uuid is missing in create response: %s", data)
+                else:
+                    patch_ok = self.add_user_to_squad(
+                        patch_target_uuid,
                         settings.REMNAWAVE_DEFAULT_SQUAD_UUID
                     )
+                    if not patch_ok:
+                        logger.error(
+                            "Squad PATCH failed for user_uuid=%s squad_uuid=%s",
+                            patch_target_uuid,
+                            settings.REMNAWAVE_DEFAULT_SQUAD_UUID
+                        )
+                    else:
+                        logger.info(
+                            "Squad assignment OK for user_uuid=%s squad_uuid=%s",
+                            patch_target_uuid,
+                            settings.REMNAWAVE_DEFAULT_SQUAD_UUID
+                        )
 
             if inner.get("subscriptionUrl"):
                 return inner["subscriptionUrl"]
@@ -248,16 +277,26 @@ class RemnaWaveService:
             "activeInternalSquads": [squad_uuid]
         }
         try:
-            response = curl_requests.patch(
-                f"{panel_base}/api/users",
-                headers=headers,
-                json=payload,
-                impersonate="chrome120",
-                http_version=CurlHttpVersion.V1_1,
-                timeout=30,
-                verify=False
-            )
-            return response.status_code in (200, 201)
+            for attempt in range(1, 3):
+                response = curl_requests.patch(
+                    f"{panel_base}/api/users",
+                    headers=headers,
+                    json=payload,
+                    impersonate="chrome120",
+                    http_version=CurlHttpVersion.V1_1,
+                    timeout=30,
+                    verify=False
+                )
+                if response.status_code in (200, 201):
+                    return True
+                logger.warning(
+                    "Squad PATCH attempt %s failed: status=%s body=%s",
+                    attempt,
+                    response.status_code,
+                    response.text
+                )
+                time.sleep(1)
+            return False
         except Exception as e:
             logger.exception("Failed to add user %s to squad %s: %s", user_uuid, squad_uuid, e)
             return False
