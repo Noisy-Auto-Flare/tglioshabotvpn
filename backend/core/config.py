@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     REMNAWAVE_API_KEY: str
     REMNAWAVE_COOKIE: str = ""
     SUB_DOMAIN: str = ""
+    REMNAWAVE_DEFAULT_SQUAD_UUID: str = ""
 
     # Payment Settings (CryptoBot)
     CRYPTOBOT_TOKEN: str

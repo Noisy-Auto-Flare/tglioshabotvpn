@@ -21,6 +21,18 @@ class RemnaWaveService:
         }
         self._working_auth_method = None
 
+    def _build_panel_headers(self, panel_base: str) -> Dict[str, str]:
+        headers = {
+            "accept": "application/json",
+            "authorization": f"Bearer {self.api_key}",
+            "content-type": "application/json",
+            "origin": panel_base,
+            "x-remnawave-client-type": "browser"
+        }
+        if settings.REMNAWAVE_COOKIE:
+            headers["Cookie"] = settings.REMNAWAVE_COOKIE
+        return headers
+
     def _get_auth_headers(self, method: str) -> Dict[str, str]:
         """Returns headers for a specific auth method."""
         headers = self.base_headers.copy()
@@ -163,17 +175,9 @@ class RemnaWaveService:
             "trafficLimitStrategy": "NO_RESET",
             "expireAt": expire_at,
             "description": f"Created by bot for {telegram_id}",
-            "activeInternalSquads": []
+            "activeInternalSquads": [settings.REMNAWAVE_DEFAULT_SQUAD_UUID] if settings.REMNAWAVE_DEFAULT_SQUAD_UUID else []
         }
-        headers = {
-            "accept": "application/json",
-            "authorization": f"Bearer {self.api_key}",
-            "content-type": "application/json",
-            "origin": panel_base,
-            "x-remnawave-client-type": "browser"
-        }
-        if settings.REMNAWAVE_COOKIE:
-            headers["Cookie"] = settings.REMNAWAVE_COOKIE
+        headers = self._build_panel_headers(panel_base)
 
         try:
             # NOTE: verify=False is kept for compatibility with current panel config.
@@ -194,9 +198,19 @@ class RemnaWaveService:
             data = response.json()
             inner = data.get("response", data) if isinstance(data, dict) else {}
             short_uuid = inner.get("shortUuid")
+            user_uuid = inner.get("uuid")
             if not short_uuid:
                 logger.error("RemnaWave create user response missing shortUuid: %s", data)
                 return None
+
+            if settings.REMNAWAVE_DEFAULT_SQUAD_UUID and user_uuid:
+                added = self.add_user_to_squad(user_uuid, settings.REMNAWAVE_DEFAULT_SQUAD_UUID)
+                if not added:
+                    logger.error(
+                        "Failed to add user %s to squad %s",
+                        user_uuid,
+                        settings.REMNAWAVE_DEFAULT_SQUAD_UUID
+                    )
 
             if inner.get("subscriptionUrl"):
                 return inner["subscriptionUrl"]
@@ -206,6 +220,32 @@ class RemnaWaveService:
         except Exception as e:
             logger.exception("create_user_and_get_link failed for telegram_id=%s: %s", telegram_id, e)
             return None
+
+    def add_user_to_squad(self, user_uuid: str, squad_uuid: str) -> bool:
+        """Adds user to Internal Squad via PATCH /api/users."""
+        panel_base = self.api_url
+        if panel_base.endswith("/api"):
+            panel_base = panel_base[:-4]
+
+        headers = self._build_panel_headers(panel_base)
+        payload = {
+            "uuid": user_uuid,
+            "activeInternalSquads": [squad_uuid]
+        }
+        try:
+            response = curl_requests.patch(
+                f"{panel_base}/api/users",
+                headers=headers,
+                json=payload,
+                impersonate="chrome120",
+                http_version=CurlHttpVersion.V1_1,
+                timeout=30,
+                verify=False
+            )
+            return response.status_code in (200, 201)
+        except Exception as e:
+            logger.exception("Failed to add user %s to squad %s: %s", user_uuid, squad_uuid, e)
+            return False
 
     async def disable_vpn_user(self, user_uuid: str) -> bool:
         result = await self._request("PATCH", f"/users/{user_uuid}", {"status": "disabled"})
