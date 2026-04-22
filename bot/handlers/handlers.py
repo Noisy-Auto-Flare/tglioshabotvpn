@@ -110,8 +110,14 @@ async def process_profile(message: Message, db: AsyncSession):
                 profile_text += f"\n🔑 VPN Ключ:\n<code>{vpn_key.config}</code>"
             else:
                 profile_text += f"\n🔑 VPN Ключ:\n<code>⚠️ Ключ временно недоступен, попробуйте позже</code>"
-        
-        await message.answer(profile_text, parse_mode="HTML")
+        elif sub:
+            # Subscription is active, but no VPN key record exists at all.
+            # This can happen with older users or failed creation that didn't record a VPNKey.
+            profile_text += f"\n🔑 VPN Ключ:\n<code>⚠️ Ключ еще не создан. Нажмите \"Получить ключ\" ниже.</code>"
+            
+        # Add buttons based on status
+        from bot.keyboards.keyboards import get_profile_keyboard
+        await message.answer(profile_text, parse_mode="HTML", reply_markup=get_profile_keyboard(bool(sub), bool(vpn_key)))
     except Exception as e:
         logger.error(f"Error in process_profile: {e}")
         await message.answer("Ошибка при получении профиля.")
@@ -143,17 +149,20 @@ async def process_referral(message: Message, db: AsyncSession):
 
 @router.message(F.text == "Информация")
 async def process_info(message: Message):
-    text = (
-        "ℹ️ Информация\n\n"
-        "📍 Как подключиться:\n"
-        "1. Скачайте приложение (v2raytun для Android и iOS)\n"
-        "2. Скопируйте ключ из профиля\n"
-        "3. Импортируйте ключ в приложение\n\n"
-        "🔗 Ссылки:\n"
-        "- Проверка IP: https://whoer.net\n"
-        "- Speedtest: https://speedtest.net"
+    info_text = (
+        "ℹ️ <b>Информация</b>\n\n"
+        "📍 <b>Как подключиться:</b>\n"
+        "1. Скачайте приложение <b>v2raytun</b> для Android или iOS.\n"
+        "2. Купите подписку в разделе «Подключиться».\n"
+        "3. Перейдите в «Мой профиль» и скопируйте VPN-ключ (начинается с vless://).\n"
+        "4. В приложении v2raytun нажмите «+» или «Импорт» и вставьте ключ.\n"
+        "5. Нажмите на кнопку подключения.\n\n"
+        "🔗 <b>Полезные ссылки:</b>\n"
+        "- Проверка IP: <a href='https://whoer.net'>whoer.net</a>\n"
+        "- Speedtest: <a href='https://speedtest.net'>speedtest.net</a>\n\n"
+        "⚠️ Если ключ не отображается в профиле, нажмите кнопку «Получить ключ»."
     )
-    await message.answer(text)
+    await message.answer(info_text, parse_mode="HTML", disable_web_page_preview=True)
 
 @router.message(F.text == "Поддержка")
 async def process_support(message: Message):
@@ -238,3 +247,112 @@ async def process_plan_selection(callback: CallbackQuery, db: AsyncSession):
 @router.callback_query(F.data == "check_payment")
 async def process_check_payment(callback: CallbackQuery):
     await callback.answer("Платеж проверяется автоматически. Пожалуйста, подождите несколько минут.", show_alert=True)
+
+@router.callback_query(F.data == "buy_subscription")
+async def process_buy_sub_callback(callback: CallbackQuery):
+    await callback.message.edit_text(
+        "Выберите подходящий тарифный план:",
+        reply_markup=get_subscription_plans()
+    )
+
+@router.callback_query(F.data == "get_vpn_key")
+async def process_get_vpn_key(callback: CallbackQuery, db: AsyncSession):
+    try:
+        stmt = select(User).where(User.telegram_id == callback.from_user.id)
+        result = await db.execute(stmt)
+        user = result.scalar_one()
+
+        # Check for active sub
+        now = datetime.now()
+        sub_stmt = select(Subscription).where(
+            Subscription.user_id == user.id,
+            Subscription.status == SubscriptionStatus.ACTIVE,
+            Subscription.end_date > now
+        ).order_by(Subscription.end_date.desc()).limit(1)
+        sub_result = await db.execute(sub_stmt)
+        sub = sub_result.scalar_one_or_none()
+
+        if not sub:
+            return await callback.answer("У вас нет активной подписки.", show_alert=True)
+
+        await callback.answer("Генерируем ключ... Пожалуйста, подождите.", show_alert=False)
+        
+        from backend.services.tasks import process_successful_payment
+        # We simulate a successful payment process to generate/update the key
+        # using a unique ID to avoid idempotency trigger (since we actually want to update)
+        # However, process_successful_payment is designed for NEW payments.
+        # Let's use the core VPN logic instead or fix it to be more reusable.
+        
+        from backend.services.vpn import vpn_service
+        from backend.services.tasks import generate_mock_config
+        import uuid as uuid_lib
+        
+        vpn_data = await vpn_service.create_vpn_user(user.telegram_id, expire_at=int(sub.end_date.timestamp()))
+        
+        config = None
+        is_active = False
+        uuid = None
+        error_message = None
+
+        if vpn_data.get("success"):
+            data = vpn_data.get("data", {})
+            if isinstance(data, dict):
+                uuid = data.get("uuid") or data.get("id")
+            
+            if uuid:
+                fetched_config = await vpn_service.get_vpn_config(uuid)
+                if fetched_config:
+                    config = fetched_config
+                    is_active = True
+                else:
+                    error_message = "Failed to fetch config"
+            else:
+                error_message = "No UUID/ID in response"
+        else:
+            error_message = vpn_data.get("error", "API error")
+
+        if not config:
+            fallback_uuid = str(uuid_lib.uuid4())
+            uuid = uuid or fallback_uuid
+            config = generate_mock_config(user.telegram_id, uuid)
+
+        # Update or create VPNKey
+        vpn_stmt = select(VPNKey).where(VPNKey.user_id == user.id).order_by(VPNKey.expire_at.desc()).limit(1)
+        vpn_res = await db.execute(vpn_stmt)
+        existing_vpn = vpn_res.scalar_one_or_none()
+
+        if existing_vpn:
+            existing_vpn.uuid = uuid
+            existing_vpn.config = config
+            existing_vpn.is_active = is_active
+            existing_vpn.error_message = error_message
+            existing_vpn.expire_at = sub.end_date
+            existing_vpn.subscription_id = sub.id
+        else:
+            new_vpn = VPNKey(
+                user_id=user.id,
+                subscription_id=sub.id,
+                uuid=uuid,
+                config=config,
+                expire_at=sub.end_date,
+                is_active=is_active,
+                error_message=error_message
+            )
+            db.add(new_vpn)
+        
+        await db.commit()
+        
+        if is_active:
+            await callback.message.edit_text(
+                f"✅ Ключ успешно получен!\n\n<code>{config}</code>\n\nИспользуйте его в приложении v2raytun.",
+                parse_mode="HTML"
+            )
+        else:
+            await callback.message.edit_text(
+                f"⚠️ Ошибка API, но мы создали временный ключ.\n\n<code>{config}</code>\n\nМы попробуем активировать его в ближайшее время.",
+                parse_mode="HTML"
+            )
+
+    except Exception as e:
+        logger.error(f"Error in process_get_vpn_key: {e}")
+        await callback.answer("Ошибка при получении ключа.", show_alert=True)

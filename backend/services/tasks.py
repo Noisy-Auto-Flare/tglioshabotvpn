@@ -163,33 +163,37 @@ async def payment_polling():
         await asyncio.sleep(20)
 
 async def vpn_retry_task():
-    """Background task to retry failed VPN key creations."""
+    """Background task to retry failed VPN key creations and provision missing keys for active subs."""
     while True:
         try:
             async with AsyncSessionLocal() as session:
-                # Get failed/inactive VPN keys that haven't expired
+                now = datetime.now()
+                
+                # 1. Retry failed keys (is_active=False)
                 stmt = select(VPNKey).where(
                     VPNKey.is_active == False,
-                    VPNKey.expire_at > datetime.now()
+                    VPNKey.expire_at > now
                 )
                 result = await session.execute(stmt)
                 failed_keys = result.scalars().all()
-
+                
                 for vpn_key in failed_keys:
-                    logger.info(f"Retrying VPN creation for user {vpn_key.user_id} (VPNKey ID: {vpn_key.id})")
-                    
                     # Get user telegram_id
                     user_stmt = select(User).where(User.id == vpn_key.user_id)
                     user_res = await session.execute(user_stmt)
-                    user = user_res.scalar_one()
+                    user = user_res.scalar_one_or_none()
+                    if not user: continue
 
-                    vpn_data = await vpn_service.create_vpn_user(
-                        user.telegram_id, 
-                        expire_at=int(vpn_key.expire_at.timestamp())
-                    )
-
+                    logger.info(f"Retrying VPN provisioning for user {user.id}")
+                    vpn_data = await vpn_service.create_vpn_user(user.telegram_id, expire_at=int(vpn_key.expire_at.timestamp()))
+                    
                     if vpn_data.get("success"):
-                        uuid = vpn_data["data"].get("uuid")
+                        data = vpn_data.get("data", {})
+                        # Handle both dict and list response if necessary
+                        uuid = None
+                        if isinstance(data, dict):
+                            uuid = data.get("uuid") or data.get("id")
+                        
                         if uuid:
                             config = await vpn_service.get_vpn_config(uuid)
                             if config:
@@ -197,15 +201,63 @@ async def vpn_retry_task():
                                 vpn_key.config = config
                                 vpn_key.is_active = True
                                 vpn_key.error_message = None
-                                logger.info(f"Successfully recovered VPN key for user {vpn_key.user_id}")
-                            else:
-                                vpn_key.error_message = "Recovery: Failed to fetch config"
-                        else:
-                            vpn_key.error_message = "Recovery: No UUID in success response"
-                    else:
-                        vpn_key.error_message = f"Recovery failed: {vpn_data.get('error')}"
+                                await session.commit()
+                                logger.info(f"Successfully fixed VPN key for user {user.id}")
                 
-                await session.commit()
+                # 2. Find active subscriptions WITHOUT any VPNKey record
+                sub_stmt = select(Subscription).where(
+                    Subscription.status == SubscriptionStatus.ACTIVE,
+                    Subscription.end_date > now
+                )
+                sub_res = await session.execute(sub_stmt)
+                active_subs = sub_res.scalars().all()
+                
+                for sub in active_subs:
+                    # Check if vpn_key exists for this subscription
+                    key_stmt = select(VPNKey).where(VPNKey.subscription_id == sub.id)
+                    key_res = await session.execute(key_stmt)
+                    if not key_res.scalar_one_or_none():
+                        # Missing VPNKey record! Let's create it.
+                        user_stmt = select(User).where(User.id == sub.user_id)
+                        user_res = await session.execute(user_stmt)
+                        user = user_res.scalar_one_or_none()
+                        if not user: continue
+                        
+                        logger.info(f"Provisioning missing VPNKey for active subscription {sub.id} (user {user.id})")
+                        
+                        vpn_data = await vpn_service.create_vpn_user(user.telegram_id, expire_at=int(sub.end_date.timestamp()))
+                        
+                        config = generate_mock_config(user.telegram_id, "pending")
+                        is_active = False
+                        uuid = None
+                        error_message = vpn_data.get("error", "Initial background provision")
+
+                        if vpn_data.get("success"):
+                            data = vpn_data.get("data", {})
+                            if isinstance(data, dict):
+                                uuid = data.get("uuid") or data.get("id")
+                            
+                            if uuid:
+                                fetched_config = await vpn_service.get_vpn_config(uuid)
+                                if fetched_config:
+                                    config = fetched_config
+                                    is_active = True
+                                    error_message = None
+
+                        new_vpn = VPNKey(
+                            user_id=user.id,
+                            subscription_id=sub.id,
+                            uuid=uuid,
+                            config=config,
+                            expire_at=sub.end_date,
+                            is_active=is_active,
+                            error_message=error_message
+                        )
+                        session.add(new_vpn)
+                        await session.commit()
+                        logger.info(f"Created missing VPNKey for sub {sub.id}. Active: {is_active}")
+
         except Exception as e:
             logger.error(f"Error in VPN retry task: {e}")
-        await asyncio.sleep(60) # Check every minute
+            
+        await asyncio.sleep(600) # Check every 10 minutes

@@ -24,3 +24,15 @@ def get_payment_keyboard(invoice_url: str) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="Проверить оплату", callback_data="check_payment")]
     ]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+def get_profile_keyboard(has_sub: bool, has_key: bool) -> InlineKeyboardMarkup:
+    keyboard = []
+    if has_sub and not has_key:
+        keyboard.append([InlineKeyboardButton(text="🎁 Получить ключ", callback_data="get_vpn_key")])
+    elif has_sub and has_key:
+        keyboard.append([InlineKeyboardButton(text="🔄 Обновить ключ", callback_data="get_vpn_key")])
+    
+    if not has_sub:
+        keyboard.append([InlineKeyboardButton(text="💳 Купить подписку", callback_data="buy_subscription")])
+    
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
