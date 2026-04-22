@@ -81,15 +81,15 @@ Follow the **Installation** steps above. The `docker-compose.yml` is configured 
 
 ## 💾 Backup Guide
 
-Since we use SQLite, all your data is in a single file: `app.db`.
+Since we use SQLite, all your data is in a single file: `data/app.db`.
 
 ### How to Backup
-You can simply copy the file even while the bot is running (thanks to WAL mode).
+You can simply copy the file even while the bot is running (thanks to WAL mode). If using Docker, the file is located inside the `sqlite_data` volume, but you can also find it in your project's `data/` folder if you mapped it.
 
 ### Automated Backups (Cron)
 To backup your database every 6 hours, add this to your `crontab -e`:
 ```bash
-0 */6 * * * cp /path/to/tg-vpn-bot/app.db /path/to/backups/app_$(date +\%Y\%m\%d_\%H\%M\%S).db
+0 */6 * * * cp /path/to/tg-vpn-bot/data/app.db /path/to/backups/app_$(date +\%Y\%m\%d_\%H\%M\%S).db
 ```
 
 ---

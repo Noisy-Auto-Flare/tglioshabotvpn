@@ -24,7 +24,7 @@ class Settings(BaseSettings):
             return []
 
     # Database Settings
-    DATABASE_URL: str = "sqlite+aiosqlite:///./app.db"
+    DATABASE_URL: str = "sqlite+aiosqlite:///./data/app.db"
 
     # VPN Settings (RemnaWave)
     REMNAWAVE_API_URL: str

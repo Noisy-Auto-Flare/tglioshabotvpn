@@ -1,12 +1,10 @@
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.pool import StaticPool
 from sqlalchemy import event
-import os
-from dotenv import load_dotenv
+from backend.core.config import settings
 
-load_dotenv()
-
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./app.db")
+# Use settings from centralized config
+DATABASE_URL = settings.DATABASE_URL
 
 # Use StaticPool for SQLite to keep the connection open for the duration of the process
 # if using :memory: database. For file-based, it helps with WAL mode consistency.

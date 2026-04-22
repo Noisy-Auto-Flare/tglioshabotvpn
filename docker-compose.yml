@@ -5,7 +5,7 @@ services:
     command: python -m backend.main
     volumes:
       - .:/app
-      - ./app.db:/app/app.db
+      - sqlite_data:/app/data
     env_file:
       - .env
     ports:
@@ -18,7 +18,7 @@ services:
     command: python -m bot.main
     volumes:
       - .:/app
-      - ./app.db:/app/app.db
+      - sqlite_data:/app/data
     env_file:
       - .env
     depends_on:

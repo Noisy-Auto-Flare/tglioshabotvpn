@@ -19,7 +19,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy project files
 COPY . .
 
-# Create database file if not exists
-RUN touch app.db && chmod 666 app.db
+# Create data directory for SQLite
+RUN mkdir -p data && chmod 777 data
 
 # Entrypoint for bot and backend will be set in docker-compose
