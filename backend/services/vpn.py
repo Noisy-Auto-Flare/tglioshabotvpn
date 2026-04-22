@@ -230,31 +230,19 @@ class RemnaWaveService:
                 logger.error("RemnaWave create user response missing shortUuid: %s", data)
                 return None
 
-            # Force squad assignment with PATCH (as in manual curl flow),
-            # even when activeInternalSquads was already passed in POST payload.
             if not settings.REMNAWAVE_DEFAULT_SQUAD_UUID:
-                logger.error("REMNAWAVE_DEFAULT_SQUAD_UUID is empty, skipping squad assignment")
-            else:
-                patch_target_uuid = user_uuid or short_uuid
-                if not patch_target_uuid:
-                    logger.error("Cannot PATCH squad: user uuid is missing in create response: %s", data)
+                logger.warning("REMNAWAVE_DEFAULT_SQUAD_UUID is empty; user is created without squad assignment")
+
+            # Diagnostic verification: read created user and log current squads.
+            # This helps verify that activeInternalSquads from POST was applied.
+            if user_uuid:
+                assigned_squads = self.get_user_active_squads(user_uuid)
+                if assigned_squads is None:
+                    logger.warning("Could not verify squads for user_uuid=%s after create", user_uuid)
                 else:
-                    patch_ok = self.add_user_to_squad(
-                        patch_target_uuid,
-                        settings.REMNAWAVE_DEFAULT_SQUAD_UUID
-                    )
-                    if not patch_ok:
-                        logger.error(
-                            "Squad PATCH failed for user_uuid=%s squad_uuid=%s",
-                            patch_target_uuid,
-                            settings.REMNAWAVE_DEFAULT_SQUAD_UUID
-                        )
-                    else:
-                        logger.info(
-                            "Squad assignment OK for user_uuid=%s squad_uuid=%s",
-                            patch_target_uuid,
-                            settings.REMNAWAVE_DEFAULT_SQUAD_UUID
-                        )
+                    logger.info("Created user_uuid=%s activeInternalSquads=%s", user_uuid, assigned_squads)
+            else:
+                logger.warning("Could not verify squads: uuid missing in create response: %s", data)
 
             if inner.get("subscriptionUrl"):
                 return inner["subscriptionUrl"]
@@ -300,6 +288,34 @@ class RemnaWaveService:
         except Exception as e:
             logger.exception("Failed to add user %s to squad %s: %s", user_uuid, squad_uuid, e)
             return False
+
+    def get_user_active_squads(self, user_uuid: str) -> Optional[List[Any]]:
+        """Fetches user and returns activeInternalSquads for diagnostics."""
+        panel_base = self.api_url
+        if panel_base.endswith("/api"):
+            panel_base = panel_base[:-4]
+
+        headers = self._build_panel_headers(panel_base)
+        try:
+            response = curl_requests.get(
+                f"{panel_base}/api/users/{user_uuid}",
+                headers=headers,
+                impersonate="chrome120",
+                http_version=CurlHttpVersion.V1_1,
+                timeout=30,
+                verify=False
+            )
+            if response.status_code not in (200, 201):
+                logger.warning("GET user for squad verification failed: status=%s body=%s", response.status_code, response.text)
+                return None
+
+            data = response.json()
+            inner = data.get("response", data) if isinstance(data, dict) else {}
+            squads = self._deep_find_first(inner, ["activeInternalSquads"])
+            return squads if isinstance(squads, list) else []
+        except Exception as e:
+            logger.exception("Failed to verify squads for user_uuid=%s: %s", user_uuid, e)
+            return None
 
     async def disable_vpn_user(self, user_uuid: str) -> bool:
         result = await self._request("PATCH", f"/users/{user_uuid}", {"status": "disabled"})
