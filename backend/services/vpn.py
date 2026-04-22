@@ -24,9 +24,18 @@ class RemnaWaveService:
     def _build_panel_headers(self, panel_base: str) -> Dict[str, str]:
         headers = {
             "accept": "application/json",
+            "accept-language": "ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7",
             "authorization": f"Bearer {self.api_key}",
             "content-type": "application/json",
             "origin": panel_base,
+            "priority": "u=1, i",
+            "sec-ch-ua": '"Microsoft Edge";v="147", "Not.A/Brand";v="8", "Chromium";v="147"',
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": '"Windows"',
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "same-origin",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0",
             "x-remnawave-client-type": "browser"
         }
         if settings.REMNAWAVE_COOKIE:
@@ -197,10 +206,26 @@ class RemnaWaveService:
 
             data = response.json()
             inner = data.get("response", data) if isinstance(data, dict) else {}
+            user_uuid = (
+                inner.get("uuid")
+                or (inner.get("user") or {}).get("uuid")
+                or (inner.get("response") or {}).get("uuid")
+            )
             short_uuid = inner.get("shortUuid")
             if not short_uuid:
                 logger.error("RemnaWave create user response missing shortUuid: %s", data)
                 return None
+
+            # Force squad assignment with PATCH (as in manual curl flow),
+            # even when activeInternalSquads was already passed in POST payload.
+            if settings.REMNAWAVE_DEFAULT_SQUAD_UUID and user_uuid:
+                patch_ok = self.add_user_to_squad(user_uuid, settings.REMNAWAVE_DEFAULT_SQUAD_UUID)
+                if not patch_ok:
+                    logger.error(
+                        "Squad PATCH failed for user_uuid=%s squad_uuid=%s",
+                        user_uuid,
+                        settings.REMNAWAVE_DEFAULT_SQUAD_UUID
+                    )
 
             if inner.get("subscriptionUrl"):
                 return inner["subscriptionUrl"]
