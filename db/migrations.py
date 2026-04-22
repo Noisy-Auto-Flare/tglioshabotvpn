@@ -40,4 +40,14 @@ async def run_migrations(engine: AsyncEngine):
             except Exception as e:
                 logger.error(f"Migration failed for vpn_keys.error_message: {e}")
 
-        # Add any other missing columns here if needed in the future
+        # Check if traffic_limit_gb exists in subscriptions
+        subs_result = await conn.execute(text("PRAGMA table_info(subscriptions)"))
+        subs_columns = [row[1] for row in subs_result.fetchall()]
+
+        if "traffic_limit_gb" not in subs_columns:
+            logger.info("Migration: Adding traffic_limit_gb column to subscriptions table...")
+            try:
+                await conn.execute(text("ALTER TABLE subscriptions ADD COLUMN traffic_limit_gb INTEGER"))
+                logger.info("Migration: traffic_limit_gb added successfully.")
+            except Exception as e:
+                logger.error(f"Migration failed for subscriptions.traffic_limit_gb: {e}")

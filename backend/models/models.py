@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import Enum
 from typing import Optional
-from sqlalchemy import BigInteger, DateTime, Float, ForeignKey, String, Text, func
+from sqlalchemy import BigInteger, DateTime, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.base import Base
@@ -36,6 +36,7 @@ class Subscription(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     plan: Mapped[str] = mapped_column(String)  # trial, 30, 90, 180, 360
+    traffic_limit_gb: Mapped[Optional[int]] = mapped_column(Integer)
     start_date: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     end_date: Mapped[datetime] = mapped_column(DateTime)
     status: Mapped[SubscriptionStatus] = mapped_column(String, default=SubscriptionStatus.ACTIVE)

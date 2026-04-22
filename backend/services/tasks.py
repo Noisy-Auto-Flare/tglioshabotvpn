@@ -2,15 +2,19 @@ import asyncio
 import logging
 import uuid as uuid_lib
 from datetime import datetime, timezone, timedelta
-from typing import Dict, Any
+from time import perf_counter
+from typing import Dict, Any, Optional, Tuple
 
+from aiogram import Bot
 from db.session import AsyncSessionLocal
 from backend.models.models import User, Subscription, VPNKey, SubscriptionStatus, Payment, PaymentStatus
 from backend.services.vpn import vpn_service
 from backend.services.payments import cryptobot_service
+from backend.core.config import settings
 from sqlalchemy import select
 
 logger = logging.getLogger(__name__)
+PLAN_TRAFFIC_GB = {30: 30, 90: 90, 180: 180, 360: 360}
 
 def generate_mock_config(user_id: int, uuid: str) -> str:
     """Generates a mock VLESS config as a fallback."""
@@ -18,7 +22,58 @@ def generate_mock_config(user_id: int, uuid: str) -> str:
     # vless://UUID@your-server:443?type=tcp&security=tls&sni=your-sni&fp=chrome&path=%2F&encryption=none#user_ID
     return f"vless://{uuid}@your-vpn-server.com:443?type=tcp&security=tls&sni=google.com&fp=chrome&path=%2F&encryption=none#user_{user_id}"
 
-async def process_successful_payment(session, user_id: int, plan_days: int, amount: float, external_id: str):
+def parse_payment_payload(payload: str) -> Optional[Tuple[int, int, Optional[int]]]:
+    """
+    Supports old and new payload formats:
+    - old: user_id:plan_days
+    - new: user_id:plan_days:traffic_gb
+    """
+    parts = payload.split(":")
+    if len(parts) < 2:
+        return None
+    try:
+        user_id = int(parts[0])
+        plan_days = int(parts[1])
+        traffic_gb = int(parts[2]) if len(parts) > 2 else None
+        return user_id, plan_days, traffic_gb
+    except (TypeError, ValueError):
+        return None
+
+async def _notify_admins(text: str) -> None:
+    if not settings.ADMIN_IDS:
+        return
+    try:
+        async with Bot(token=settings.BOT_TOKEN) as bot:
+            for admin_id in settings.ADMIN_IDS:
+                try:
+                    await bot.send_message(admin_id, text)
+                except Exception as send_err:
+                    logger.error("Failed to notify admin %s: %s", admin_id, send_err)
+    except Exception as e:
+        logger.error("Failed to initialize bot for admin notification: %s", e)
+
+async def _send_subscription_message(telegram_id: int, link: str, plan_days: int, traffic_gb: int) -> None:
+    text = (
+        "✅ Оплата подтверждена! Подписка активирована.\n\n"
+        f"🔗 Ссылка для подключения:\n{link}\n\n"
+        f"📦 Лимит трафика: {traffic_gb} GB\n"
+        f"📅 Срок действия: {plan_days} дней\n\n"
+        "Инструкция: откройте ссылку в VPN-клиенте и импортируйте конфигурацию."
+    )
+    try:
+        async with Bot(token=settings.BOT_TOKEN) as bot:
+            await bot.send_message(telegram_id, text, disable_web_page_preview=True)
+    except Exception as e:
+        logger.error("Failed to send subscription link to user %s: %s", telegram_id, e)
+
+async def process_successful_payment(
+    session,
+    user_id: int,
+    plan_days: int,
+    amount: float,
+    external_id: str,
+    traffic_gb: Optional[int] = None
+):
     """Core logic for processing a successful payment, used by both webhook and polling."""
     # Idempotency check
     stmt = select(Payment).where(Payment.external_id == external_id)
@@ -40,9 +95,11 @@ async def process_successful_payment(session, user_id: int, plan_days: int, amou
     now = datetime.now()
     end_date = now + timedelta(days=plan_days)
     
+    effective_traffic_gb = traffic_gb if traffic_gb is not None else PLAN_TRAFFIC_GB.get(plan_days, 30)
     sub = Subscription(
         user_id=user_id,
         plan=str(plan_days),
+        traffic_limit_gb=effective_traffic_gb,
         start_date=now,
         end_date=end_date,
         status=SubscriptionStatus.ACTIVE
@@ -60,32 +117,37 @@ async def process_successful_payment(session, user_id: int, plan_days: int, amou
         logger.error(f"User {user_id} not found during payment processing")
         return False
 
-    vpn_data = await vpn_service.create_vpn_user(user.telegram_id, expire_at=int(end_date.timestamp()))
+    started_at = perf_counter()
+    subscription_link = await asyncio.to_thread(
+        vpn_service.create_user_and_get_link,
+        user.telegram_id,
+        effective_traffic_gb,
+        plan_days
+    )
+    duration_ms = int((perf_counter() - started_at) * 1000)
+    logger.info(
+        "RemnaWave create_user_and_get_link finished for user=%s in %sms success=%s",
+        user.telegram_id,
+        duration_ms,
+        bool(subscription_link)
+    )
     
     config = None
     is_active = False
     uuid = None
     error_message = None
 
-    if vpn_data.get("success"):
-        # API worked
-        data = vpn_data.get("data", {})
-        if isinstance(data, dict):
-            uuid = data.get("uuid") or data.get("id")
-        
-        if uuid:
-            fetched_config = await vpn_service.get_vpn_config(uuid)
-            if fetched_config:
-                config = fetched_config
-                is_active = True
-            else:
-                error_message = "Failed to fetch config after user creation"
-        else:
-            error_message = "No UUID/ID in success response"
+    if subscription_link:
+        config = subscription_link
+        is_active = True
+        uuid = subscription_link.rstrip("/").split("/")[-1]
     else:
-        # API failed - record error
-        error_message = vpn_data.get("error", "Unknown API error")
-        logger.error(f"VPN Provisioning failed for user {user_id}: {error_message}")
+        error_message = "RemnaWave link creation failed"
+        logger.error("VPN provisioning failed for user %s: %s", user_id, error_message)
+        await _notify_admins(
+            f"⚠️ Ошибка создания VPN-подписки для пользователя {user.telegram_id} (user_id={user.id}). "
+            f"Платеж {external_id}. Проверьте REMNAWAVE_COOKIE/API."
+        )
 
     # Fallback: if no config was generated by API, create a mock one but keep is_active=False
     if not config:
@@ -108,6 +170,19 @@ async def process_successful_payment(session, user_id: int, plan_days: int, amou
     
     await session.commit()
     logger.info(f"Successfully processed payment {external_id} for user {user_id}. VPN Active: {is_active}")
+
+    if subscription_link:
+        await _send_subscription_message(user.telegram_id, subscription_link, plan_days, effective_traffic_gb)
+    else:
+        try:
+            async with Bot(token=settings.BOT_TOKEN) as bot:
+                await bot.send_message(
+                    user.telegram_id,
+                    "❌ Оплата получена, но создать VPN-ссылку не удалось. Администратор уведомлен, скоро исправим."
+                )
+        except Exception as send_err:
+            logger.error("Failed to send failure message to user %s: %s", user.telegram_id, send_err)
+
     return True
 
 async def check_expirations():
@@ -159,9 +234,19 @@ async def payment_polling():
                             amount = float(invoice.get("amount"))
                             payload = invoice.get("payload", "")
                             
-                            if ":" in payload:
-                                user_id, plan_days = map(int, payload.split(":"))
-                                await process_successful_payment(session, user_id, plan_days, amount, external_id)
+                            parsed = parse_payment_payload(payload)
+                            if parsed:
+                                user_id, plan_days, traffic_gb = parsed
+                                await process_successful_payment(
+                                    session,
+                                    user_id,
+                                    plan_days,
+                                    amount,
+                                    external_id,
+                                    traffic_gb=traffic_gb
+                                )
+                            else:
+                                logger.error("Invalid invoice payload format: %s", payload)
         except Exception as e:
             logger.error(f"Error in payment polling: {e}")
         await asyncio.sleep(20)

@@ -10,7 +10,13 @@ from db.base import Base
 from db.migrations import run_migrations
 import backend.models.models # Import models to register them with Base
 from backend.services.payments import cryptobot_service
-from backend.services.tasks import check_expirations, payment_polling, process_successful_payment, vpn_retry_task
+from backend.services.tasks import (
+    check_expirations,
+    payment_polling,
+    process_successful_payment,
+    vpn_retry_task,
+    parse_payment_payload,
+)
 from backend.models.models import VPNKey, User, Subscription
 
 # Configure logging
@@ -79,8 +85,19 @@ async def cryptobot_webhook(request: Request, db: AsyncSession = Depends(get_db)
             return {"ok": True}
         
         try:
-            user_id, plan_days = map(int, payload.split(":"))
-            await process_successful_payment(db, user_id, plan_days, amount, external_id)
+            parsed = parse_payment_payload(payload)
+            if not parsed:
+                logger.error(f"Invalid payload in webhook: {payload}")
+                return {"ok": True}
+            user_id, plan_days, traffic_gb = parsed
+            await process_successful_payment(
+                db,
+                user_id,
+                plan_days,
+                amount,
+                external_id,
+                traffic_gb=traffic_gb
+            )
         except Exception as e:
             logger.error(f"Failed to process webhook payment: {e}")
             raise HTTPException(status_code=500, detail="Internal processing error")

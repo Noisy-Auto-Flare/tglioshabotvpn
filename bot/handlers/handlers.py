@@ -212,6 +212,7 @@ async def process_plan_selection(callback: CallbackQuery, db: AsyncSession):
             sub = Subscription(
                 user_id=user.id,
                 plan="trial",
+                traffic_limit_gb=10,
                 start_date=now,
                 end_date=end_date,
                 status=SubscriptionStatus.ACTIVE
@@ -270,12 +271,19 @@ async def process_plan_selection(callback: CallbackQuery, db: AsyncSession):
             return
 
         # Paid plans
-        plans = {"30": 5, "90": 12, "180": 20, "360": 35}
-        price = plans.get(plan_id, 5)
+        plans = {
+            "30": {"price": 5, "gb": 30},
+            "90": {"price": 12, "gb": 90},
+            "180": {"price": 20, "gb": 180},
+            "360": {"price": 35, "gb": 360},
+        }
+        plan = plans.get(plan_id, {"price": 5, "gb": 30})
+        price = plan["price"]
+        traffic_gb = plan["gb"]
         
         invoice = await cryptobot_service.create_invoice(
             amount=price,
-            payload=f"{user.id}:{plan_id}"
+            payload=f"{user.id}:{plan_id}:{traffic_gb}"
         )
         
         if invoice:
@@ -291,7 +299,7 @@ async def process_plan_selection(callback: CallbackQuery, db: AsyncSession):
             await db.commit()
 
             await callback.message.edit_text(
-                f"Оплатите {price}$ для активации подписки на {plan_id} дней:",
+                f"Оплатите {price}$ для активации подписки на {plan_id} дней ({traffic_gb} GB):",
                 reply_markup=get_payment_keyboard(invoice["pay_url"])
             )
         else:

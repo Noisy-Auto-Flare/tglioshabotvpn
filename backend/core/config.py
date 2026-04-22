@@ -1,6 +1,5 @@
-import os
-from typing import List, Optional, Any, Union
-from pydantic import field_validator, Field
+from typing import List, Optional
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
@@ -29,6 +28,8 @@ class Settings(BaseSettings):
     # VPN Settings (RemnaWave)
     REMNAWAVE_API_URL: str
     REMNAWAVE_API_KEY: str
+    REMNAWAVE_COOKIE: str = ""
+    SUB_DOMAIN: str = ""
 
     # Payment Settings (CryptoBot)
     CRYPTOBOT_TOKEN: str

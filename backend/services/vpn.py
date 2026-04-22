@@ -2,7 +2,10 @@ import httpx
 import logging
 import asyncio
 import json
+import time
+from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, Union, List
+from curl_cffi import requests as curl_requests, CurlHttpVersion
 from backend.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -144,6 +147,65 @@ class RemnaWaveService:
                 return result
                 
         return {"success": False, "error": "All creation endpoints failed"}
+
+    def create_user_and_get_link(self, telegram_id: int, data_limit_gb: int = 30, days: int = 30) -> Optional[str]:
+        """Creates a RemnaWave user via curl_cffi and returns subscription URL."""
+        panel_base = self.api_url
+        if panel_base.endswith("/api"):
+            panel_base = panel_base[:-4]
+
+        unique_username = f"user_{telegram_id}_{int(time.time())}"
+        expire_at = (datetime.now() + timedelta(days=days)).isoformat() + "Z"
+        payload = {
+            "username": unique_username,
+            "status": "ACTIVE",
+            "trafficLimitBytes": data_limit_gb * 1024**3,
+            "trafficLimitStrategy": "NO_RESET",
+            "expireAt": expire_at,
+            "description": f"Created by bot for {telegram_id}",
+            "activeInternalSquads": []
+        }
+        headers = {
+            "accept": "application/json",
+            "authorization": f"Bearer {self.api_key}",
+            "content-type": "application/json",
+            "origin": panel_base,
+            "x-remnawave-client-type": "browser"
+        }
+        if settings.REMNAWAVE_COOKIE:
+            headers["Cookie"] = settings.REMNAWAVE_COOKIE
+
+        try:
+            # NOTE: verify=False is kept for compatibility with current panel config.
+            # For production, use a valid certificate and set verify=True.
+            response = curl_requests.post(
+                f"{panel_base}/api/users",
+                headers=headers,
+                json=payload,
+                impersonate="chrome120",
+                http_version=CurlHttpVersion.V1_1,
+                timeout=30,
+                verify=False
+            )
+            if response.status_code not in (200, 201):
+                logger.error("RemnaWave create user failed: status=%s body=%s", response.status_code, response.text)
+                return None
+
+            data = response.json()
+            inner = data.get("response", data) if isinstance(data, dict) else {}
+            short_uuid = inner.get("shortUuid")
+            if not short_uuid:
+                logger.error("RemnaWave create user response missing shortUuid: %s", data)
+                return None
+
+            if inner.get("subscriptionUrl"):
+                return inner["subscriptionUrl"]
+            if settings.SUB_DOMAIN:
+                return f"{settings.SUB_DOMAIN.rstrip('/')}/{short_uuid}"
+            return None
+        except Exception as e:
+            logger.exception("create_user_and_get_link failed for telegram_id=%s: %s", telegram_id, e)
+            return None
 
     async def disable_vpn_user(self, user_uuid: str) -> bool:
         result = await self._request("PATCH", f"/users/{user_uuid}", {"status": "disabled"})

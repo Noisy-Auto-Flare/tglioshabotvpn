@@ -11,6 +11,7 @@ alembic>=1.13.1
 
 # HTTP Client
 httpx>=0.26.0
+curl_cffi>=0.7.3
 
 # Utils
 python-dotenv>=1.0.1
