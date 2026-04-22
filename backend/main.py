@@ -5,7 +5,9 @@ from fastapi import FastAPI, Depends, Request, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.config import settings
-from db.session import get_db, AsyncSessionLocal
+from db.session import get_db, AsyncSessionLocal, engine
+from db.base import Base
+import backend.models.models # Import models to register them with Base
 from backend.services.payments import cryptobot_service
 from backend.services.tasks import check_expirations, payment_polling, process_successful_payment
 
@@ -18,6 +20,11 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Initialize database tables
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    logger.info("Database tables initialized.")
+
     # Start background tasks
     tasks = []
     tasks.append(asyncio.create_task(check_expirations()))

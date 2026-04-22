@@ -4,12 +4,12 @@ import os
 from typing import Any, Awaitable, Callable, Dict
 from aiogram import Bot, Dispatcher, BaseMiddleware
 from aiogram.types import TelegramObject
-from dotenv import load_dotenv
 
-from db.session import AsyncSessionLocal
+from backend.core.config import settings
+from db.session import AsyncSessionLocal, engine
+from db.base import Base
+import backend.models.models
 from bot.handlers.handlers import router
-
-load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -26,7 +26,12 @@ class DatabaseMiddleware(BaseMiddleware):
             return await handler(event, data)
 
 async def main():
-    bot_token = os.getenv("BOT_TOKEN")
+    # Initialize database tables
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    logger.info("Database tables initialized.")
+
+    bot_token = settings.BOT_TOKEN
     if not bot_token:
         logger.error("BOT_TOKEN not found in .env")
         return
