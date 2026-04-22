@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    container_name: vpn_backend
+    command: python -m backend.main
+    volumes:
+      - .:/app
+      - ./app.db:/app/app.db
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    restart: always
+
+  bot:
+    build: .
+    container_name: vpn_bot
+    command: python -m bot.main
+    volumes:
+      - .:/app
+      - ./app.db:/app/app.db
+    env_file:
+      - .env
+    depends_on:
+      - backend
+    restart: always
+
+volumes:
+  sqlite_data:
