@@ -1,19 +1,17 @@
 import httpx
 import logging
-import os
 import hashlib
-from typing import Optional, Dict, Any
-from dotenv import load_dotenv
-
-load_dotenv()
+import hmac
+from typing import Optional, Dict, Any, List
+from backend.core.config import settings
 
 logger = logging.getLogger(__name__)
 
 class CryptoBotService:
     def __init__(self):
-        self.api_token = os.getenv("CRYPTOBOT_TOKEN")
+        self.api_token = settings.CRYPTOBOT_TOKEN
         # CryptoBot API URL depends on the token (mainnet vs testnet)
-        # Using mainnet by default
+        # Using mainnet by default. Testnet is https://testnet-pay.crypt.bot/api
         self.api_url = "https://pay.crypt.bot/api"
         self.headers = {"Crypto-Pay-API-Token": self.api_token}
 
@@ -39,11 +37,31 @@ class CryptoBotService:
             logger.error(f"CryptoBot request failed: {e}")
             return None
 
+    async def get_invoices(self, invoice_ids: List[str]) -> List[Dict[str, Any]]:
+        """Get status of specific invoices via API polling."""
+        if not invoice_ids:
+            return []
+            
+        url = f"{self.api_url}/getInvoices"
+        params = {"invoice_ids": ",".join(invoice_ids)}
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(url, params=params, headers=self.headers)
+                response.raise_for_status()
+                res_data = response.json()
+                if res_data.get("ok"):
+                    return res_data["result"]["items"]
+                logger.error(f"CryptoBot getInvoices failed: {res_data.get('error')}")
+                return []
+        except Exception as e:
+            logger.error(f"CryptoBot getInvoices request failed: {e}")
+            return []
+
     def verify_webhook(self, body: str, signature: str) -> bool:
-        # Check signature according to CryptoBot documentation
-        # hmac-sha256(sha256(token), body)
+        """Verify webhook signature from CryptoBot."""
+        if not signature:
+            return False
         token_hash = hashlib.sha256(self.api_token.encode()).digest()
-        import hmac
         expected_sig = hmac.new(token_hash, body.encode(), hashlib.sha256).hexdigest()
         return hmac.compare_digest(expected_sig, signature)
 

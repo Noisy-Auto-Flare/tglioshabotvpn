@@ -1,109 +1,127 @@
-# 🚀 Telegram VPN Subscription Bot (SQLite Edition)
+# 🚀 Telegram VPN Subscription Bot
 
-A production-ready Telegram VPN bot optimized for low-resource VPS (1GB RAM) using SQLite, RemnaWave API, and CryptoBot payments.
+A production-ready Telegram VPN bot optimized for low-resource VPS (1GB RAM). Built with Python, Aiogram, FastAPI, and SQLite.
 
-## 🧱 Architecture
+## 🧱 Project Goal
+Provide a stable, lightweight, and easy-to-deploy system for managing VPN subscriptions via Telegram with automated payments and provisioning.
 
-```ascii
-+-------------------+       +-------------------+       +-------------------+
-|   Telegram User   | <---> |   Aiogram Bot     | <---> |   SQLite DB       |
-+-------------------+       +-------------------+       |   (WAL Mode)      |
-                                    ^                   +-------------------+
-                                    |                           ^
-                                    v                           |
-+-------------------+       +-------------------+               |
-|   CryptoBot Webhook| ---> |   FastAPI Backend | <-------------+
-+-------------------+       +-------------------+               |
-                                    ^                           |
-                                    |                           |
-                                    v                           |
-                            +-------------------+               |
-                            |   RemnaWave API   | <-------------+
-                            +-------------------+
-```
+---
 
-## ⚡ Key Features
+## ⚙️ Environment Variables (Configuration)
 
-- **SQLite Optimized**: Configured with WAL mode and `synchronous=NORMAL` for maximum performance on low-resource hardware.
-- **Lightweight**: No Redis or Celery. Background tasks run directly in the FastAPI event loop.
-- **VPN Provisioning**: Seamless integration with RemnaWave API for VLESS keys.
-- **Payments**: Idempotent webhook processing for CryptoBot.
-- **Referral System**: Built-in user rewards and referral link tracking.
+Before running the bot, you need to set up your `.env` file. See [.env.example](.env.example) for a template.
 
-## 🛠️ Tech Stack
+### 🤖 Telegram Bot
+*   **`BOT_TOKEN`**: The unique token for your Telegram bot.
+    *   **How to get**: Message [@BotFather](https://t.me/BotFather) on Telegram, create a new bot, and copy the API token.
+*   **`ADMIN_IDS`**: Comma-separated list of Telegram User IDs who will have admin access.
+    *   **How to get**: Use [@userinfobot](https://t.me/userinfobot) to find your ID.
 
-- **Language**: Python 3.11+
-- **Bot**: Aiogram 3.x
-- **API**: FastAPI
-- **Database**: SQLite with SQLAlchemy (Async)
-- **Infrastructure**: Docker & Docker Compose
+### 🔑 VPN Integration (RemnaWave)
+*   **`REMNAWAVE_API_URL`**: The base URL of your RemnaWave instance API.
+    *   **Where to find**: Usually `https://your-panel-domain.com/api`.
+*   **`REMNAWAVE_API_KEY`**: Your secret API key for RemnaWave.
+    *   **How to get**: Go to your RemnaWave Panel -> Settings -> API Keys -> Create New Key.
 
-## 🚀 How to Run Locally
+### 💳 Payments (CryptoBot)
+*   **`CRYPTOBOT_TOKEN`**: API token for CryptoBot payments.
+    *   **How to get**: Message [@CryptoBot](https://t.me/CryptoBot), go to **Crypto Pay** -> **My Apps** -> **Create App**, then copy the **API Token**.
+*   **`USE_WEBHOOK`**: Set to `True` to use webhooks (requires HTTPS) or `False` to use background polling (easier for local testing).
+*   **`WEBHOOK_URL`**: Your public backend URL for CryptoBot webhooks.
+    *   **Example**: `https://api.yourdomain.com/api/v1/payments/cryptobot/webhook`
 
-1.  **Clone the repository**:
+### 💾 Database
+*   **`DATABASE_URL`**: SQLAlchemy connection string for SQLite.
+    *   **Format**: `sqlite+aiosqlite:///./app.db` (Default)
+
+---
+
+## 🛠️ Step-by-Step Setup
+
+### 1. Prerequisites
+*   A VPS with at least 1GB RAM.
+*   [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) installed.
+
+### 2. Installation
+1.  **Clone the Repository**:
     ```bash
-    git clone <repo_url>
-    cd <repo_name>
+    git clone https://github.com/your-username/tg-vpn-bot.git
+    cd tg-vpn-bot
     ```
 
-2.  **Configure environment**:
+2.  **Configure Environment**:
     ```bash
     cp .env.example .env
-    # Fill in your BOT_TOKEN, CRYPTOBOT_TOKEN, etc.
+    nano .env  # Fill in your variables
     ```
 
-3.  **Run with Docker**:
+3.  **Run the Project**:
     ```bash
-    docker-compose up --build
+    docker-compose up -d --build
     ```
 
-## 🌍 VPS Deployment (1GB RAM)
+---
 
-This system is specifically designed for 1GB RAM servers.
+## 🌍 VPS Deployment Guide
 
-1.  **Install Docker and Docker Compose** on your VPS.
-2.  **Transfer files** to the server.
-3.  **Update `.env`** with production values (Webhook URLs, actual API keys).
-4.  **Launch**: `docker-compose up -d`.
-
-## 💾 SQLite Optimization & Limitations
-
-### Optimization
-- **WAL Mode**: Enabled for concurrent reads and writes.
-- **Synchronous=NORMAL**: Reduced disk I/O while maintaining safety.
-- **Connection Pooling**: Managed via `StaticPool` for stability.
-
-### Limitations
-- Not suitable for 10,000+ concurrent active users.
-- Single-file database (backups are easy but must be handled carefully).
-
-## 🛡️ Backup Strategy (MANDATORY)
-
-Since SQLite is a single file (`app.db`), backups are simple but critical.
-
-### How to Backup
-1.  **Direct Copy**: Simply copy the `app.db` file while the application is running (WAL mode makes this safe).
-2.  **VACUUM INTO**: Use `VACUUM INTO 'backup.db'` for a consistent snapshot.
-
-### Backup Schedule
-- **Frequency**: Every 6 hours recommended.
-- **Retention**: Keep at least 7 days of backups.
-
-### Example Cron Job
+### 1. Connect to your VPS
 ```bash
-# Every 6 hours, copy the DB to a backup folder with a timestamp
-0 */6 * * * cp /path/to/app.db /path/to/backups/app_$(date +\%Y\%m\%d_\%H\%M\%S).db
+ssh root@your_vps_ip
 ```
 
-## 🔄 Migration to PostgreSQL
+### 2. Install Docker (One-liner for Ubuntu/Debian)
+```bash
+curl -fsSL https://get.docker.com -o get-docker.sh && sh get-docker.sh
+```
 
-If you outgrow SQLite, the transition is straightforward:
-1.  Update `DATABASE_URL` in `.env` to a PostgreSQL connection string.
-2.  Install `asyncpg`.
-3.  Run Alembic migrations to create the schema in Postgres.
-4.  Use a tool like `pgloader` to migrate existing data.
+### 3. Deploy
+Follow the **Installation** steps above. The `docker-compose.yml` is configured with `restart: always`, meaning your bot will automatically start if the server reboots or the app crashes.
+
+---
+
+## 💾 Backup Guide
+
+Since we use SQLite, all your data is in a single file: `app.db`.
+
+### How to Backup
+You can simply copy the file even while the bot is running (thanks to WAL mode).
+
+### Automated Backups (Cron)
+To backup your database every 6 hours, add this to your `crontab -e`:
+```bash
+0 */6 * * * cp /path/to/tg-vpn-bot/app.db /path/to/backups/app_$(date +\%Y\%m\%d_\%H\%M\%S).db
+```
+
+---
+
+## 🔍 Troubleshooting
+
+### 🛑 Bot not responding
+1.  Check if containers are running: `docker-compose ps`
+2.  Check logs: `docker-compose logs -f bot`
+3.  Ensure `BOT_TOKEN` is correct.
+
+### 🔒 Database is locked
+This usually happens if multiple processes try to write to SQLite simultaneously. 
+*   **Fix**: Our project uses **WAL Mode** and **Async** access to minimize this. If it persists, ensure you aren't running multiple instances of the backend.
+
+### 💸 Payment not confirmed
+*   If using **Webhooks**: Ensure your `WEBHOOK_URL` is correct, uses `https`, and is accessible from the internet.
+*   If using **Polling**: Ensure `USE_WEBHOOK=False` in your `.env`.
+
+---
+
+## 🏗️ Architecture (Simplified)
+
+```ascii
+User -> Telegram Bot (Aiogram) -> Backend (FastAPI) -> SQLite
+                                      |
+                                      +-> RemnaWave (VPN)
+                                      +-> CryptoBot (Payments)
+```
 
 ## 🔐 Security
-- Environment variables for all secrets.
-- Webhook signature validation for payments.
-- Input sanitization via Pydantic and SQLAlchemy.
+- No secrets stored in code (all in `.env`).
+- Webhook signature validation.
+- SQLite WAL mode for data integrity.
+- Pydantic models for input validation.
