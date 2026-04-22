@@ -1,5 +1,6 @@
 import uuid
 import logging
+import asyncio
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
 
@@ -220,37 +221,28 @@ async def process_plan_selection(callback: CallbackQuery, db: AsyncSession):
             db.add(sub)
             await db.flush() # Get sub.id
             
-            # Provision VPN using the same logic as successful payment
-            vpn_data = await vpn_service.create_vpn_user(user.telegram_id, expire_at=int(end_date.timestamp()))
-            
+            # Provision VPN via curl_cffi path (more stable for this panel)
+            subscription_link = await asyncio.to_thread(
+                vpn_service.create_user_and_get_link,
+                user.telegram_id,
+                10,
+                3
+            )
             config = None
             is_active = False
             uuid = None
             error_message = None
-            
-            if vpn_data.get("success"):
-                data = vpn_data.get("data", {})
-                if isinstance(data, dict):
-                    uuid = data.get("uuid") or data.get("id")
-                
-                if uuid:
-                    fetched_config = await vpn_service.get_vpn_config(uuid)
-                    if fetched_config:
-                        config = fetched_config
-                        is_active = True
-                    else:
-                        error_message = "Failed to fetch config"
-                else:
-                    error_message = "No UUID in success response"
+            if subscription_link:
+                config = subscription_link
+                is_active = True
+                uuid = subscription_link.rstrip("/").split("/")[-1]
             else:
-                error_message = vpn_data.get("error", "API error")
-
-            if not config:
                 from backend.services.tasks import generate_mock_config
                 import uuid as uuid_lib
                 fallback_uuid = str(uuid_lib.uuid4())
-                uuid = uuid or fallback_uuid
+                uuid = fallback_uuid
                 config = generate_mock_config(user.telegram_id, uuid)
+                error_message = "RemnaWave link creation failed"
 
             new_vpn = VPNKey(
                 user_id=user.id,
@@ -344,39 +336,29 @@ async def process_get_vpn_key(callback: CallbackQuery, db: AsyncSession):
 
         await callback.answer("Генерируем ключ... Пожалуйста, подождите.", show_alert=False)
         
-        from backend.services.tasks import process_successful_payment
-        # We simulate a successful payment process to generate/update the key
-        # using a unique ID to avoid idempotency trigger (since we actually want to update)
-        # However, process_successful_payment is designed for NEW payments.
-        # Let's use the core VPN logic instead or fix it to be more reusable.
-        
         from backend.services.vpn import vpn_service
         from backend.services.tasks import generate_mock_config
         import uuid as uuid_lib
-        
-        vpn_data = await vpn_service.create_vpn_user(user.telegram_id, expire_at=int(sub.end_date.timestamp()))
+        remaining_days = max(1, (sub.end_date - now).days)
+        traffic_gb = sub.traffic_limit_gb or 30
+        subscription_link = await asyncio.to_thread(
+            vpn_service.create_user_and_get_link,
+            user.telegram_id,
+            traffic_gb,
+            remaining_days
+        )
         
         config = None
         is_active = False
         uuid = None
         error_message = None
 
-        if vpn_data.get("success"):
-            data = vpn_data.get("data", {})
-            if isinstance(data, dict):
-                uuid = data.get("uuid") or data.get("id")
-            
-            if uuid:
-                fetched_config = await vpn_service.get_vpn_config(uuid)
-                if fetched_config:
-                    config = fetched_config
-                    is_active = True
-                else:
-                    error_message = "Failed to fetch config"
-            else:
-                error_message = "No UUID/ID in response"
+        if subscription_link:
+            config = subscription_link
+            is_active = True
+            uuid = subscription_link.rstrip("/").split("/")[-1]
         else:
-            error_message = vpn_data.get("error", "API error")
+            error_message = "RemnaWave link creation failed"
 
         if not config:
             fallback_uuid = str(uuid_lib.uuid4())

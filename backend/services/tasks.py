@@ -274,24 +274,28 @@ async def vpn_retry_task():
                     if not user: continue
 
                     logger.info(f"Retrying VPN provisioning for user {user.id}")
-                    vpn_data = await vpn_service.create_vpn_user(user.telegram_id, expire_at=int(vpn_key.expire_at.timestamp()))
-                    
-                    if vpn_data.get("success"):
-                        data = vpn_data.get("data", {})
-                        # Handle both dict and list response if necessary
-                        uuid = None
-                        if isinstance(data, dict):
-                            uuid = data.get("uuid") or data.get("id")
-                        
-                        if uuid:
-                            config = await vpn_service.get_vpn_config(uuid)
-                            if config:
-                                vpn_key.uuid = uuid
-                                vpn_key.config = config
-                                vpn_key.is_active = True
-                                vpn_key.error_message = None
-                                await session.commit()
-                                logger.info(f"Successfully fixed VPN key for user {user.id}")
+                    remaining_days = max(1, (vpn_key.expire_at - now).days)
+                    traffic_gb = 30
+                    if vpn_key.subscription_id:
+                        sub_stmt = select(Subscription).where(Subscription.id == vpn_key.subscription_id)
+                        sub_res = await session.execute(sub_stmt)
+                        sub = sub_res.scalar_one_or_none()
+                        if sub and sub.traffic_limit_gb:
+                            traffic_gb = sub.traffic_limit_gb
+
+                    link = await asyncio.to_thread(
+                        vpn_service.create_user_and_get_link,
+                        user.telegram_id,
+                        traffic_gb,
+                        remaining_days
+                    )
+                    if link:
+                        vpn_key.uuid = link.rstrip("/").split("/")[-1]
+                        vpn_key.config = link
+                        vpn_key.is_active = True
+                        vpn_key.error_message = None
+                        await session.commit()
+                        logger.info(f"Successfully fixed VPN key for user {user.id}")
                 
                 # 2. Find active subscriptions WITHOUT any VPNKey record
                 sub_stmt = select(Subscription).where(
@@ -313,25 +317,26 @@ async def vpn_retry_task():
                         if not user: continue
                         
                         logger.info(f"Provisioning missing VPNKey for active subscription {sub.id} (user {user.id})")
-                        
-                        vpn_data = await vpn_service.create_vpn_user(user.telegram_id, expire_at=int(sub.end_date.timestamp()))
-                        
+
+                        remaining_days = max(1, (sub.end_date - now).days)
+                        traffic_gb = sub.traffic_limit_gb or 30
+                        link = await asyncio.to_thread(
+                            vpn_service.create_user_and_get_link,
+                            user.telegram_id,
+                            traffic_gb,
+                            remaining_days
+                        )
+
                         config = generate_mock_config(user.telegram_id, "pending")
                         is_active = False
                         uuid = None
-                        error_message = vpn_data.get("error", "Initial background provision")
+                        error_message = "Initial background provision"
 
-                        if vpn_data.get("success"):
-                            data = vpn_data.get("data", {})
-                            if isinstance(data, dict):
-                                uuid = data.get("uuid") or data.get("id")
-                            
-                            if uuid:
-                                fetched_config = await vpn_service.get_vpn_config(uuid)
-                                if fetched_config:
-                                    config = fetched_config
-                                    is_active = True
-                                    error_message = None
+                        if link:
+                            config = link
+                            is_active = True
+                            uuid = link.rstrip("/").split("/")[-1]
+                            error_message = None
 
                         new_vpn = VPNKey(
                             user_id=user.id,
