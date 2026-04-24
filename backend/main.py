@@ -9,6 +9,7 @@ from db.session import get_db, AsyncSessionLocal, engine
 from db.base import Base
 from db.migrations import run_migrations
 import backend.models.models # Import models to register them with Base
+from backend.services.init_db import init_screens
 from backend.services.payments import cryptobot_service
 from backend.services.tasks import (
     check_expirations,
@@ -34,6 +35,10 @@ async def lifespan(app: FastAPI):
     
     # Run manual migrations for SQLite
     await run_migrations(engine)
+    
+    # Initialize default screens
+    async with AsyncSessionLocal() as db:
+        await init_screens(db)
     
     logger.info("Database tables and schema initialized.")
 
@@ -69,7 +74,7 @@ async def cryptobot_webhook(request: Request, db: AsyncSession = Depends(get_db)
     body = await request.body()
     signature = request.headers.get("Crypto-Pay-API-Signature")
     
-    if not cryptobot_service.verify_webhook(body.decode(), signature):
+    if not signature or not cryptobot_service.verify_webhook(body.decode(), signature):
         logger.warning("Invalid CryptoBot webhook signature received")
         raise HTTPException(status_code=400, detail="Invalid signature")
     

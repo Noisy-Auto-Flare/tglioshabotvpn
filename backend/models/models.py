@@ -71,3 +71,11 @@ class Payment(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     user: Mapped["User"] = relationship(back_populates="payments")
+
+class Screen(Base):
+    __tablename__ = "screens"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String, unique=True, index=True)
+    text: Mapped[str] = mapped_column(Text)
+    image_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)

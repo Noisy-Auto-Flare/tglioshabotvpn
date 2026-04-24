@@ -11,9 +11,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from backend.models.models import User, Subscription, VPNKey, SubscriptionStatus, Payment, PaymentStatus
-from bot.keyboards.keyboards import get_main_menu, get_subscription_plans, get_payment_keyboard
+from bot.keyboards.keyboards import get_main_menu, get_subscription_plans, get_payment_keyboard, get_profile_keyboard
 from backend.services.payments import cryptobot_service
 from backend.services.vpn import vpn_service
+from bot.services.renderer import render_screen
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -21,6 +22,9 @@ router = Router()
 @router.message(CommandStart())
 async def cmd_start(message: Message, db: AsyncSession):
     """Handle /start command. Register new users and handle referrals."""
+    if not message.from_user:
+        return
+
     try:
         stmt = select(User).where(User.telegram_id == message.from_user.id)
         result = await db.execute(stmt)
@@ -60,25 +64,29 @@ async def cmd_start(message: Message, db: AsyncSession):
                     raise e 
                 logger.info(f"User {message.from_user.id} already exists (handled race condition)")
         
-        await message.answer(
-            "👋 Добро пожаловать в VPN бот!\n\n"
-            "Мы предоставляем быстрый и надежный VPN.\n"
-            "Выберите действие в меню ниже:",
-            reply_markup=get_main_menu()
+        await render_screen(
+            message,
+            db,
+            "main_menu",
+            keyboard=get_main_menu()
         )
     except Exception as e:
         logger.error(f"Error in cmd_start: {e}")
         await message.answer("Произошла ошибка при регистрации. Попробуйте позже.")
 
 @router.message(F.text == "Подключиться")
-async def process_connect(message: Message):
-    await message.answer(
-        "Выберите подходящий тарифный план:",
-        reply_markup=get_subscription_plans()
+async def process_connect(message: Message, db: AsyncSession):
+    await render_screen(
+        message,
+        db,
+        "plans",
+        keyboard=get_subscription_plans()
     )
 
 @router.message(F.text == "Мой профиль")
 async def process_profile(message: Message, db: AsyncSession):
+    if not message.from_user:
+        return
     try:
         stmt = select(User).where(User.telegram_id == message.from_user.id)
         result = await db.execute(stmt)
@@ -111,34 +119,36 @@ async def process_profile(message: Message, db: AsyncSession):
             days = remaining.days
             status_text = f"✅ Активна до: {sub.end_date.strftime('%d.%m.%Y %H:%M')}\nОсталось дней: {max(0, days)}"
         
-        profile_text = (
-            f"👤 Профиль\n\n"
-            f"🆔 Ваш ID: <code>{user.telegram_id}</code>\n"
-            f"💰 Баланс: {user.balance}$\n"
-            f"📝 Статус: {status_text}\n"
-        )
-        
+        vpn_info = ""
         if vpn_key:
             if vpn_key.is_active:
-                profile_text += f"\n🔑 <b>Ваш VPN Ключ:</b>\n<code>{vpn_key.config}</code>"
+                vpn_info = f"\n🔑 <b>Ваш VPN Ключ:</b>\n<code>{vpn_key.config}</code>"
             else:
                 error_info = ""
                 if vpn_key.error_message:
                     error_info = f"\n\n<i>Причина: {vpn_key.error_message}</i>"
-                profile_text += f"\n🔑 <b>VPN Ключ временно недоступен</b>\n<code>⚠️ Ключ в процессе создания или произошла ошибка.</code>{error_info}\n\nПопробуйте нажать кнопку «Обновить ключ» через минуту."
+                vpn_info = f"\n🔑 <b>VPN Ключ временно недоступен</b>\n<code>⚠️ Ключ в процессе создания или произошла ошибка.</code>{error_info}\n\nПопробуйте нажать кнопку «Обновить ключ» через минуту."
         elif sub:
-            # Subscription is active, but no VPN key record exists at all.
-            profile_text += f"\n🔑 <b>VPN Ключ еще не создан</b>\nНажмите кнопку «Получить ключ» ниже для генерации ключа."
+            vpn_info = f"\n🔑 <b>VPN Ключ еще не создан</b>\nНажмите кнопку «Получить ключ» ниже для генерации ключа."
         
-        # Add buttons based on status
-        from bot.keyboards.keyboards import get_profile_keyboard
-        await message.answer(profile_text, parse_mode="HTML", reply_markup=get_profile_keyboard(bool(sub), bool(vpn_key)))
+        await render_screen(
+            message,
+            db,
+            "profile",
+            keyboard=get_profile_keyboard(bool(sub), bool(vpn_key)),
+            telegram_id=user.telegram_id,
+            balance=user.balance,
+            status_text=status_text,
+            vpn_info=vpn_info
+        )
     except Exception as e:
         logger.error(f"Error in process_profile: {e}")
         await message.answer("Ошибка при получении профиля.")
 
 @router.message(F.text == "Реферальная система")
 async def process_referral(message: Message, db: AsyncSession):
+    if not message.from_user or not message.bot:
+        return
     try:
         stmt = select(User).where(User.telegram_id == message.from_user.id)
         result = await db.execute(stmt)
@@ -155,36 +165,23 @@ async def process_referral(message: Message, db: AsyncSession):
         bot_info = await message.bot.get_me()
         ref_link = f"https://t.me/{bot_info.username}?start={user.referral_code}"
         
-        text = (
-            f"👥 Реферальная система\n\n"
-            f"Приглашайте друзей и получайте бонусы на баланс!\n\n"
-            f"Количество приглашенных: {count}\n"
-            f"Ваша ссылка: {ref_link}"
+        await render_screen(
+            message,
+            db,
+            "referral",
+            count=count,
+            ref_link=ref_link
         )
-        await message.answer(text)
     except Exception as e:
         logger.error(f"Error in process_referral: {e}")
 
 @router.message(F.text == "Информация")
-async def process_info(message: Message):
-    info_text = (
-        "ℹ️ <b>Информация</b>\n\n"
-        "📍 <b>Как подключиться:</b>\n"
-        "1. Скачайте приложение <b>v2raytun</b> для Android или iOS.\n"
-        "2. Купите подписку в разделе «Подключиться».\n"
-        "3. Перейдите в «Мой профиль» и скопируйте VPN-ключ (начинается с vless://).\n"
-        "4. В приложении v2raytun нажмите «+» или «Импорт» и вставьте ключ.\n"
-        "5. Нажмите на кнопку подключения.\n\n"
-        "🔗 <b>Полезные ссылки:</b>\n"
-        "- Проверка IP: <a href='https://whoer.net'>whoer.net</a>\n"
-        "- Speedtest: <a href='https://speedtest.net'>speedtest.net</a>\n\n"
-        "⚠️ Если ключ не отображается в профиле, нажмите кнопку «Получить ключ»."
-    )
-    await message.answer(info_text, parse_mode="HTML", disable_web_page_preview=True)
+async def process_info(message: Message, db: AsyncSession):
+    await render_screen(message, db, "info")
 
 @router.message(F.text == "Поддержка")
-async def process_support(message: Message):
-    await message.answer("По всем вопросам пишите @admin")
+async def process_support(message: Message, db: AsyncSession):
+    await render_screen(message, db, "support")
 
 @router.callback_query(F.data.startswith("plan_"))
 async def process_plan_selection(callback: CallbackQuery, db: AsyncSession):

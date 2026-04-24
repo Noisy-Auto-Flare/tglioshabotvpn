@@ -11,6 +11,8 @@ from db.base import Base
 from db.migrations import run_migrations
 import backend.models.models
 from bot.handlers.handlers import router
+from bot.handlers.admin import router as admin_router
+from backend.services.init_db import init_screens
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -34,6 +36,10 @@ async def main():
     # Run manual migrations for SQLite
     await run_migrations(engine)
     
+    # Initialize default screens
+    async with AsyncSessionLocal() as db:
+        await init_screens(db)
+    
     logger.info("Database tables and schema initialized.")
 
     bot_token = settings.BOT_TOKEN
@@ -48,6 +54,7 @@ async def main():
     dp.update.middleware(DatabaseMiddleware())
     
     # Register routers
+    dp.include_router(admin_router)
     dp.include_router(router)
     
     logger.info("Starting bot polling...")
