@@ -1,9 +1,9 @@
 import asyncio
 import logging
 import uuid as uuid_lib
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
 from time import perf_counter
-from typing import Dict, Any, Optional, Tuple
+from typing import Optional, Tuple
 
 from aiogram import Bot
 from db.session import AsyncSessionLocal
@@ -72,7 +72,8 @@ async def process_successful_payment(
     plan_days: int,
     amount: float,
     external_id: str,
-    traffic_gb: Optional[int] = None
+    traffic_gb: Optional[int] = None,
+    provider: str = "cryptobot",
 ):
     """Core logic for processing a successful payment, used by both webhook and polling."""
     # Idempotency check
@@ -85,7 +86,7 @@ async def process_successful_payment(
     payment = Payment(
         user_id=user_id,
         amount=amount,
-        provider="cryptobot",
+        provider=provider,
         status=PaymentStatus.COMPLETED,
         external_id=external_id
     )
@@ -206,7 +207,7 @@ async def check_expirations():
                     vpn_res = await session.execute(vpn_stmt)
                     vpn_key = vpn_res.scalar_one_or_none()
                     
-                    if vpn_key:
+                    if vpn_key and vpn_key.uuid:
                         await vpn_service.disable_vpn_user(vpn_key.uuid)
                 
                 await session.commit()
@@ -231,7 +232,11 @@ async def payment_polling():
                     for invoice in invoices:
                         if invoice.get("status") == "paid":
                             external_id = str(invoice.get("invoice_id"))
-                            amount = float(invoice.get("amount"))
+                            amount_raw = invoice.get("amount")
+                            if amount_raw is None:
+                                logger.error("Invoice has no amount: %s", invoice)
+                                continue
+                            amount = float(amount_raw)
                             payload = invoice.get("payload", "")
                             
                             parsed = parse_payment_payload(payload)

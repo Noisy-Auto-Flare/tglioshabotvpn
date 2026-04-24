@@ -65,7 +65,7 @@ class Payment(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     amount: Mapped[float] = mapped_column(Float)
-    provider: Mapped[str] = mapped_column(String)  # cryptobot
+    provider: Mapped[str] = mapped_column(String)  # cryptobot, stars, tonconnect
     status: Mapped[PaymentStatus] = mapped_column(String, default=PaymentStatus.PENDING)
     external_id: Mapped[str] = mapped_column(String, unique=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

@@ -2,19 +2,25 @@ import uuid
 import logging
 import asyncio
 from datetime import datetime, timedelta
-from typing import Dict, Any, Optional
 
 from aiogram import Router, F
 from aiogram.filters import CommandStart
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, PreCheckoutQuery, LabeledPrice
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from backend.models.models import User, Subscription, VPNKey, SubscriptionStatus, Payment, PaymentStatus
-from bot.keyboards.keyboards import get_main_menu, get_subscription_plans, get_payment_keyboard, get_profile_keyboard
+from bot.keyboards.keyboards import (
+    get_main_menu, 
+    get_subscription_plans, 
+    get_payment_keyboard, 
+    get_profile_keyboard,
+    get_payment_methods
+)
 from backend.services.payments import cryptobot_service
 from backend.services.vpn import vpn_service
 from bot.services.renderer import render_screen
+from backend.services.tasks import parse_payment_payload, process_successful_payment
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -35,13 +41,14 @@ async def cmd_start(message: Message, db: AsyncSession):
             
             # Referral logic
             referred_by = None
-            args = message.text.split()
-            if len(args) > 1:
-                ref_stmt = select(User).where(User.referral_code == args[1])
-                ref_result = await db.execute(ref_stmt)
-                inviter = ref_result.scalar_one_or_none()
-                if inviter:
-                    referred_by = inviter.id
+            if message.text:
+                args = message.text.split()
+                if len(args) > 1:
+                    ref_stmt = select(User).where(User.referral_code == args[1])
+                    ref_result = await db.execute(ref_stmt)
+                    inviter = ref_result.scalar_one_or_none()
+                    if inviter:
+                        referred_by = inviter.id
             
             try:
                 user = User(
@@ -185,6 +192,8 @@ async def process_support(message: Message, db: AsyncSession):
 
 @router.callback_query(F.data.startswith("plan_"))
 async def process_plan_selection(callback: CallbackQuery, db: AsyncSession):
+    if not callback.data:
+        return
     plan_id = callback.data.split("_")[1]
     
     try:
@@ -196,6 +205,7 @@ async def process_plan_selection(callback: CallbackQuery, db: AsyncSession):
             return await callback.answer("Пожалуйста, используйте /start для регистрации.", show_alert=True)
 
         if plan_id == "trial":
+            # ... (keep trial logic)
             stmt = select(Subscription).where(
                 Subscription.user_id == user.id,
                 Subscription.plan == "trial"
@@ -253,20 +263,51 @@ async def process_plan_selection(callback: CallbackQuery, db: AsyncSession):
             db.add(new_vpn)
             
             await db.commit()
-            await callback.message.edit_text(
-                "✅ Пробный период активирован на 3 дня!\n\n"
-                "Ваш ключ создан и доступен в профиле."
-            )
+            
+            # Send success message as a new message (to support banner)
+            if isinstance(callback.message, Message):
+                await callback.message.delete()
+                await callback.message.answer(
+                    "✅ Пробный период активирован на 3 дня!\n\n"
+                    "Ваш ключ создан и доступен в профиле.",
+                    reply_markup=get_main_menu()
+                )
             return
 
-        # Paid plans
-        plans = {
-            "30": {"price": 5, "gb": 90},
-            "90": {"price": 12, "gb": 90},
-            "180": {"price": 20, "gb": 180},
-            "360": {"price": 35, "gb": 360},
-        }
-        plan = plans.get(plan_id, {"price": 5, "gb": 30})
+        # Show payment methods for paid plans
+        from backend.core.config import settings
+        plan = settings.PLANS.get(plan_id)
+        if not plan:
+            return await callback.answer("Выбранный тарифный план не найден.", show_alert=True)
+            
+        if isinstance(callback.message, Message):
+            await callback.message.edit_text(
+                f"Выберите способ оплаты для тарифа {plan['label']}:",
+                reply_markup=get_payment_methods(plan_id)
+            )
+
+    except Exception as e:
+        logger.error(f"Error in process_plan_selection: {e}")
+        await callback.answer("Ошибка при выборе плана.", show_alert=True)
+
+@router.callback_query(F.data.startswith("pay_crypto_"))
+async def process_pay_crypto(callback: CallbackQuery, db: AsyncSession):
+    if not callback.data:
+        return
+    plan_id = callback.data.split("_")[2]
+    try:
+        user_stmt = select(User).where(User.telegram_id == callback.from_user.id)
+        user_res = await db.execute(user_stmt)
+        user = user_res.scalar_one_or_none()
+        
+        if not user:
+            return await callback.answer("Пожалуйста, используйте /start для регистрации.", show_alert=True)
+
+        from backend.core.config import settings
+        plan = settings.PLANS.get(plan_id)
+        if not plan:
+            return await callback.answer("План не найден.", show_alert=True)
+            
         price = plan["price"]
         traffic_gb = plan["gb"]
         
@@ -276,7 +317,6 @@ async def process_plan_selection(callback: CallbackQuery, db: AsyncSession):
         )
         
         if invoice:
-            # Create a pending payment record for polling if needed
             payment = Payment(
                 user_id=user.id,
                 amount=float(price),
@@ -287,25 +327,139 @@ async def process_plan_selection(callback: CallbackQuery, db: AsyncSession):
             db.add(payment)
             await db.commit()
 
-            await callback.message.edit_text(
-                f"Оплатите {price}$ для активации подписки на {plan_id} дней ({traffic_gb} GB):",
-                reply_markup=get_payment_keyboard(invoice["pay_url"])
-            )
+            if isinstance(callback.message, Message):
+                await callback.message.edit_text(
+                    f"Оплатите {price}$ через CryptoBot для активации подписки на {plan_id} дней ({traffic_gb} GB):",
+                    reply_markup=get_payment_keyboard(invoice["pay_url"])
+                )
         else:
-            await callback.answer("Ошибка создания счета. Попробуйте позже.", show_alert=True)
+            await callback.answer("Ошибка создания счета CryptoBot. Попробуйте позже.", show_alert=True)
     except Exception as e:
-        logger.error(f"Error in process_plan_selection: {e}")
-        await callback.answer("Ошибка при выборе плана.", show_alert=True)
+        logger.error(f"Error in process_pay_crypto: {e}")
+        await callback.answer("Ошибка при создании счета.", show_alert=True)
+
+@router.callback_query(F.data.startswith("pay_stars_"))
+async def process_pay_stars(callback: CallbackQuery, db: AsyncSession):
+    if not callback.data:
+        return
+    plan_id = callback.data.split("_")[2]
+    try:
+        user_stmt = select(User).where(User.telegram_id == callback.from_user.id)
+        user_res = await db.execute(user_stmt)
+        user = user_res.scalar_one_or_none()
+        
+        if not user:
+            return await callback.answer("Пожалуйста, используйте /start для регистрации.", show_alert=True)
+
+        from backend.core.config import settings
+        plan = settings.PLANS.get(plan_id)
+        if not plan:
+            return await callback.answer("План не найден.", show_alert=True)
+
+        # Convert USD to Stars
+        stars_amount = int(plan["price"] * settings.STARS_CONVERSION_RATE)
+        traffic_gb = plan["gb"]
+        
+        if isinstance(callback.message, Message):
+            # Invoices with Stars don't need a provider_token (it's empty)
+            await callback.message.answer_invoice(
+                title=f"VPN Подписка: {plan_id} дней",
+                description=f"Подписка на {plan_id} дней ({traffic_gb} GB трафика)",
+                payload=f"{user.id}:{plan_id}:{traffic_gb}",
+                currency="XTR",
+                prices=[LabeledPrice(label="Звезды", amount=stars_amount)],
+                provider_token=""
+            )
+        await callback.answer()
+    except Exception as e:
+        logger.error(f"Error in process_pay_stars: {e}")
+        await callback.answer("Ошибка при создании счета Stars.", show_alert=True)
+
+@router.pre_checkout_query()
+async def process_pre_checkout(pre_checkout_query: PreCheckoutQuery):
+    await pre_checkout_query.answer(ok=True)
+
+@router.message(F.successful_payment)
+async def process_successful_stars_payment(message: Message, db: AsyncSession):
+    if not message.successful_payment:
+        return
+        
+    payload = message.successful_payment.invoice_payload
+    external_id = message.successful_payment.telegram_payment_charge_id
+    amount_stars = message.successful_payment.total_amount
+    
+    parsed = parse_payment_payload(payload)
+    if parsed:
+        user_id, plan_days, traffic_gb = parsed
+        # Convert stars back to approximate USD for record
+        from backend.core.config import settings
+        amount_usd = amount_stars / settings.STARS_CONVERSION_RATE
+        
+        await process_successful_payment(
+            db,
+            user_id,
+            plan_days,
+            amount_usd,
+            external_id,
+            traffic_gb=traffic_gb,
+            provider="stars"
+        )
+        await message.answer("✅ Оплата звездами прошла успешно! Ваша подписка активирована.")
+
+@router.callback_query(F.data.startswith("pay_ton_"))
+async def process_pay_ton(callback: CallbackQuery, db: AsyncSession):
+    if not callback.data:
+        return
+    plan_id = callback.data.split("_")[2]
+    try:
+        user_stmt = select(User).where(User.telegram_id == callback.from_user.id)
+        user_res = await db.execute(user_stmt)
+        user = user_res.scalar_one_or_none()
+        
+        if not user:
+            return await callback.answer("Пожалуйста, используйте /start для регистрации.", show_alert=True)
+
+        from backend.core.config import settings
+        plan = settings.PLANS.get(plan_id)
+        if not plan:
+            return await callback.answer("План не найден.", show_alert=True)
+
+        # Manual TON payment instruction flow.
+        ton_address = settings.TON_WALLET_ADDRESS or "YOUR_TON_WALLET_HERE"
+        comment = f"{user.id}:{plan_id}"
+        
+        # Deep link for TON transfer: ton://transfer/<address>?amount=<nanotons>&text=<comment>
+        # We'll just show the address and comment for now.
+        
+        text = (
+            f"💎 <b>Оплата через TON кошелек</b>\n\n"
+            f"Для оплаты тарифа {plan['label']} отправьте эквивалент в TON на адрес:\n"
+            f"<code>{ton_address}</code>\n\n"
+            f"⚠️ <b>ОБЯЗАТЕЛЬНО</b> укажите этот комментарий к платежу:\n"
+            f"<code>{comment}</code>\n\n"
+            f"<i>После отправки платежа напишите в поддержку для проверки и активации.</i>"
+        )
+        
+        if isinstance(callback.message, Message):
+            await callback.message.edit_text(text)
+        await callback.answer()
+    except Exception as e:
+        logger.error(f"Error in process_pay_ton: {e}")
+        await callback.answer("Ошибка при подготовке оплаты TON.", show_alert=True)
 
 @router.callback_query(F.data == "check_payment")
 async def process_check_payment(callback: CallbackQuery):
     await callback.answer("Платеж проверяется автоматически. Пожалуйста, подождите несколько минут.", show_alert=True)
 
 @router.callback_query(F.data == "buy_subscription")
-async def process_buy_sub_callback(callback: CallbackQuery):
-    await callback.message.edit_text(
-        "Выберите подходящий тарифный план:",
-        reply_markup=get_subscription_plans()
+async def process_buy_sub_callback(callback: CallbackQuery, db: AsyncSession):
+    if isinstance(callback.message, Message):
+        await callback.message.delete()
+    await render_screen(
+        callback,
+        db,
+        "plans",
+        keyboard=get_subscription_plans()
     )
 
 @router.callback_query(F.data == "get_vpn_key")
@@ -389,9 +543,11 @@ async def process_get_vpn_key(callback: CallbackQuery, db: AsyncSession):
         await db.commit()
         
         if is_active:
-            await callback.message.answer("✅ Ключ успешно обновлен! Проверьте ваш профиль.", reply_markup=get_main_menu())
+            if isinstance(callback.message, Message):
+                await callback.message.answer("✅ Ключ успешно обновлен! Проверьте ваш профиль.", reply_markup=get_main_menu())
         else:
-            await callback.message.answer(f"⚠️ Не удалось сгенерировать активный ключ: {error_message or 'ошибка панели'}. Мы попробуем создать его автоматически в фоновом режиме.", reply_markup=get_main_menu())
+            if isinstance(callback.message, Message):
+                await callback.message.answer(f"⚠️ Не удалось сгенерировать активный ключ: {error_message or 'ошибка панели'}. Мы попробуем создать его автоматически в фоновом режиме.", reply_markup=get_main_menu())
             
     except Exception as e:
         logger.error(f"Error in process_get_vpn_key: {e}")

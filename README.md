@@ -1,142 +1,165 @@
 # 🚀 Telegram VPN Subscription Bot
 
-A production-ready Telegram VPN bot optimized for low-resource VPS (1GB RAM). Built with Python, Aiogram, FastAPI, and SQLite.
-
-## 🧱 Project Goal
-Provide a stable, lightweight, and easy-to-deploy system for managing VPN subscriptions via Telegram with automated payments and provisioning.
+Полнофункциональный Telegram-бот для продажи подписок на VPN. Проект оптимизирован для работы на слабых VPS (от 1 ГБ ОЗУ) и включает в себя автоматическую оплату через CryptoBot и управление пользователями в панели RemnaWave.
 
 ---
 
-## ⚙️ Environment Variables (Configuration)
+## ✨ Основные возможности
 
-Before running the bot, you need to set up your `.env` file. See [.env.example](.env.example) for a template.
-
-### 🤖 Telegram Bot
-*   **`BOT_TOKEN`**: The unique token for your Telegram bot.
-    *   **How to get**: Message [@BotFather](https://t.me/BotFather) on Telegram, create a new bot, and copy the API token.
-*   **`ADMIN_IDS`**: Comma-separated list of Telegram User IDs who will have admin access.
-    *   **How to get**: Use [@userinfobot](https://t.me/userinfobot) to find your ID.
-
-### 🔑 VPN Integration (RemnaWave)
-*   **`REMNAWAVE_API_URL`**: The base URL of your RemnaWave instance API.
-    *   **Where to find**: Usually `https://your-panel-domain.com/api`.
-*   **`REMNAWAVE_API_KEY`**: Your secret API key for RemnaWave.
-    *   **How to get**: Go to your RemnaWave Panel -> Settings -> API Keys -> Create New Key.
-
-### 💳 Payments (CryptoBot)
-*   **`CRYPTOBOT_TOKEN`**: API token for CryptoBot payments.
-    *   **How to get**: Message [@CryptoBot](https://t.me/CryptoBot), go to **Crypto Pay** -> **My Apps** -> **Create App**, then copy the **API Token**.
-*   **`USE_WEBHOOK`**: Set to `True` to use webhooks (requires HTTPS) or `False` to use background polling (easier for local testing).
-*   **`WEBHOOK_URL`**: Your public backend URL for CryptoBot webhooks.
-    *   **Example**: `https://api.yourdomain.com/api/v1/payments/cryptobot/webhook`
-
-### 💾 Database
-*   **`DATABASE_URL`**: SQLAlchemy connection string for SQLite.
-    *   **Format**: `sqlite+aiosqlite:///./app.db` (Default)
+- **🖼️ Система баннеров**: Каждое сообщение (Главное меню, Профиль, Тарифы) сопровождается красивым изображением для лучшего UX.
+- **💳 Автоматическая оплата**: Интеграция с [CryptoBot](https://t.me/CryptoBot) (поддержка USDT, TON, BTC и др.).
+- **🔑 Управление VPN**: Автоматическое создание пользователей и генерация ключей в панели RemnaWave.
+- **👥 Реферальная система**: Система приглашений с бонусами на баланс пользователя.
+- **📱 Удобный профиль**: Отображение статуса подписки, остатка дней и VPN-ключа в одно нажатие.
+- **🛠️ Админ-панель**: Управление экранами (текст и изображения) прямо из бота.
+- **🐳 Docker Ready**: Быстрое развертывание одной командой.
 
 ---
 
-## 🛠️ Step-by-Step Setup
+## 🛠️ Технологический стек
 
-### 1. Prerequisites
-*   A VPS with at least 1GB RAM.
-*   [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) installed.
-
-### 2. Installation
-1.  **Clone the Repository**:
-    ```bash
-    git clone https://github.com/your-username/tg-vpn-bot.git
-    cd tg-vpn-bot
-    ```
-
-2.  **Configure Environment**:
-    ```bash
-    cp .env.example .env
-    nano .env  # Fill in your variables
-    ```
-
-3.  **Run the Project**:
-    ```bash
-    docker-compose up -d --build
-    ```
+- **Язык**: Python 3.10+
+- **Бот**: [Aiogram 3.x](https://docs.aiogram.dev/) (асинхронный фреймворк)
+- **Backend**: [FastAPI](https://fastapi.tiangolo.com/) (для вебхуков и API)
+- **База данных**: SQLite + [SQLAlchemy 2.0](https://www.sqlalchemy.org/) (асинхронный режим)
+- **HTTP Клиент**: [httpx](https://www.python-httpx.org/) и [curl_cffi](https://github.com/yifeikong/curl_cffi) (для имитации браузера при запросах к панели)
+- **Развертывание**: Docker & Docker Compose
 
 ---
 
-## 🌍 VPS Deployment Guide
+## ⚙️ Настройка окружения (.env)
 
-### 1. Connect to your VPS
-```bash
-ssh root@your_vps_ip
+Создайте файл `.env` на основе `.env.example`. Ниже приведено подробное описание каждой переменной:
+
+### 🤖 Telegram Бот
+- `BOT_TOKEN`: Токен вашего бота от [@BotFather](https://t.me/BotFather).
+- `ADMIN_IDS`: ID администраторов через запятую (узнать свой ID можно в [@userinfobot](https://t.me/userinfobot)).
+
+### 🔑 VPN Панель (RemnaWave)
+- `REMNAWAVE_API_URL`: URL вашей панели (например, `https://vpn.example.com/api`).
+- `REMNAWAVE_API_KEY`: API ключ (Настройки -> API Keys).
+- `REMNAWAVE_COOKIE`: Cookie авторизованной сессии (необходимо для некоторых функций API).
+- `SUB_DOMAIN`: Домен для ссылок подписки (например, `https://sub.example.com`).
+- `REMNAWAVE_DEFAULT_SQUAD_UUID`: ID группы (Squad), в которую будут добавляться новые пользователи.
+
+### 💳 Платежи
+- **CryptoBot**: USDT, TON, BTC и др. через [@CryptoBot](https://t.me/CryptoBot).
+- **Telegram Stars**: Оплата внутренними звездами Telegram (удобно для iOS/Android).
+- **TON (Direct)**: Прямые платежи на ваш TON кошелек (ручная проверка перевода по комментарию).
+
+### ⚙️ Настройка новых методов оплаты
+
+#### ⭐️ Telegram Stars
+1. Не требует специального токена.
+2. Настройте `STARS_CONVERSION_RATE` в `.env` (по умолчанию 50 звезд = 1 USD).
+3. Убедитесь, что ваш бот поддерживает платежи (настраивается через @BotFather -> Bot Settings -> Payments).
+
+#### 💎 TON (Direct/TonConnect)
+1. Укажите ваш адрес кошелька в `TON_WALLET_ADDRESS` в `.env`.
+2. Бот выдает пользователю инструкцию с уникальным комментарием для перевода.
+3. Текущая реализация: ручная проверка платежа и активация подписки после подтверждения.
+4. `TONCONNECT_MANIFEST_URL` добавлен в конфиг как подготовка к полной TonConnect-интеграции.
+
+### 🔧 Переменные оплаты в `.env`
+- `CRYPTOBOT_TOKEN`: API-токен из CryptoBot.
+- `USE_WEBHOOK`: `True` для webhook-режима, `False` для polling.
+- `WEBHOOK_URL`: публичный URL webhook-эндпоинта бэкенда.
+- `STARS_CONVERSION_RATE`: курс пересчета доллара в звезды Telegram.
+- `TON_WALLET_ADDRESS`: адрес TON-кошелька для прямых платежей.
+- `TONCONNECT_MANIFEST_URL`: ссылка на manifest (резерв под TonConnect).
+
+---
+
+## 🚀 Быстрый старт (Docker)
+
+1. **Клонируйте репозиторий**:
+   ```bash
+   git clone https://github.com/your-username/tg-vpn-bot.git
+   cd tg-vpn-bot
+   ```
+
+2. **Настройте конфиг**:
+   ```bash
+   cp .env.example .env
+   nano .env
+   ```
+
+3. **Запустите проект**:
+   ```bash
+   docker-compose up -d --build
+   ```
+
+Бот и бекенд запустятся автоматически. База данных будет создана в директории `data/`.
+
+---
+
+## 👨‍💻 Локальная разработка (без Docker)
+
+Если вы хотите запустить проект локально для разработки:
+
+1. **Создайте виртуальное окружение**:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # Для Linux/macOS
+   # venv\Scripts\activate  # Для Windows
+   ```
+
+2. **Установите зависимости**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Запустите бекенд**:
+   ```bash
+   python -m backend.main
+   ```
+
+4. **Запустите бота (в другом терминале)**:
+   ```bash
+   python -m bot.main
+   ```
+
+---
+
+## 📂 Структура проекта
+
+```text
+├── backend/                # Логика сервера и API
+│   ├── core/               # Настройки и конфиг
+│   ├── models/             # Модели SQLAlchemy
+│   ├── services/           # Бизнес-логика (VPN, Платежи, Задачи)
+│   └── main.py             # Точка входа FastAPI
+├── bot/                    # Telegram бот
+│   ├── handlers/           # Обработчики команд и сообщений
+│   ├── keyboards/          # Инлайн и реплай клавиатуры
+│   ├── services/           # Рендеринг и вспомогательные функции
+│   └── main.py             # Точка входа бота
+├── db/                     # Настройка БД и миграции
+├── data/                   # Файлы базы данных (создается автоматически)
+├── docker-compose.yml      # Конфигурация Docker
+└── requirements.txt        # Зависимости Python
 ```
 
-### 2. Install Docker (One-liner for Ubuntu/Debian)
-```bash
-curl -fsSL https://get.docker.com -o get-docker.sh && sh get-docker.sh
-```
+---
 
-### 3. Deploy
-Follow the **Installation** steps above. The `docker-compose.yml` is configured with `restart: always`, meaning your bot will automatically start if the server reboots or the app crashes.
+## 🛡️ Безопасность и бэкапы
+
+- **База данных**: Проект использует SQLite. Все данные хранятся в одном файле `data/app.db`.
+- **Бэкап**: Достаточно просто скопировать файл `app.db`. Рекомендуется настроить cron-задачу для копирования этого файла раз в сутки.
+- **SSL**: Для работы вебхуков CryptoBot обязательно используйте обратный прокси (например, Nginx) с настроенным SSL (Certbot/Let's Encrypt).
 
 ---
 
-## 💾 Backup Guide
+## ❓ FAQ
 
-Since we use SQLite, all your data is in a single file: `data/app.db`.
+**В: Пользователь оплатил, но подписка не появилась.**
+О: Проверьте логи бекенда (`docker logs vpn_backend`). Скорее всего, возникла ошибка при запросе к панели RemnaWave (проверьте `REMNAWAVE_COOKIE` и `API_KEY`).
 
-### How to Backup
-You can simply copy the file even while the bot is running (thanks to WAL mode). If using Docker, the file is located inside the `sqlite_data` volume, but you can also find it in your project's `data/` folder if you mapped it.
-
-### Automated Backups (Cron)
-To backup your database every 6 hours, add this to your `crontab -e`:
-```bash
-0 */6 * * * cp /path/to/tg-vpn-bot/data/app.db /path/to/backups/app_$(date +\%Y\%m\%d_\%H\%M\%S).db
-```
+**В: Как изменить текст приветствия или баннер?**
+О: Это можно сделать через админ-панель бота (если вы добавлены в `ADMIN_IDS`) или напрямую в файле `backend/services/init_db.py`, после чего нужно сбросить базу данных или обновить записи вручную.
 
 ---
 
-## 🔍 Troubleshooting
+## 📄 Лицензия
 
-### 🛑 Bot not responding
-1.  Check if containers are running: `docker-compose ps`
-2.  Check logs: `docker-compose logs -f bot`
-3.  Ensure `BOT_TOKEN` is correct.
-
-### 🔒 Database is locked
-This usually happens if multiple processes try to write to SQLite simultaneously. 
-*   **Fix**: Our project uses **WAL Mode** and **Async** access to minimize this. If it persists, ensure you aren't running multiple instances of the backend.
-
-### 🌐 RemnaWave VPN Issues
-If VPN keys are not appearing or show an error:
-1.  **Check API Key**: Ensure `REMNAWAVE_API_KEY` is a valid JWT token or API key from your panel.
-2.  **Auth Methods**: The bot automatically tries 3 different authentication methods:
-    - `Bearer <token>` (Standard JWT)
-    - `<token>` (Direct token)
-    - `X-API-Key: <token>` (Custom header)
-3.  **Cloudflare/WAF**: If your panel is behind Cloudflare, it might block the bot. The bot uses a browser-like `User-Agent` to minimize this, but you may need to whitelist your VPS IP in Cloudflare.
-4.  **Endpoint Compatibility**: The bot tests multiple endpoints (`/users`, `/api/users`, `/api/clients`, `/api/client/add`) to ensure compatibility with different RemnaWave versions.
-5.  **Logs**: Check detailed VPN logs for the exact error:
-    ```bash
-    docker-compose logs -f backend | grep RemnaWave
-    ```
-6.  **Mock Fallback**: If the API is completely down, the bot will still generate a "Mock" config so the user's profile isn't empty, and will retry in the background every minute.
-
-### 💸 Payment not confirmed
-*   If using **Webhooks**: Ensure your `WEBHOOK_URL` is correct, uses `https`, and is accessible from the internet.
-*   If using **Polling**: Ensure `USE_WEBHOOK=False` in your `.env`.
-
----
-
-## 🏗️ Architecture (Simplified)
-
-```ascii
-User -> Telegram Bot (Aiogram) -> Backend (FastAPI) -> SQLite
-                                      |
-                                      +-> RemnaWave (VPN)
-                                      +-> CryptoBot (Payments)
-```
-
-## 🔐 Security
-- No secrets stored in code (all in `.env`).
-- Webhook signature validation.
-- SQLite WAL mode for data integrity.
-- Pydantic models for input validation.
+Проект распространяется под лицензией MIT. Вы можете свободно использовать, изменять и распространять его.

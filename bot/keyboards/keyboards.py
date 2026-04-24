@@ -1,4 +1,5 @@
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+from backend.core.config import settings
 
 def get_main_menu() -> ReplyKeyboardMarkup:
     keyboard = [
@@ -9,12 +10,19 @@ def get_main_menu() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
 def get_subscription_plans() -> InlineKeyboardMarkup:
+    keyboard = [[InlineKeyboardButton(text="Пробный (3 дня) - 0$", callback_data="plan_trial")]]
+    
+    for plan_id, plan in settings.PLANS.items():
+        keyboard.append([InlineKeyboardButton(text=plan["label"], callback_data=f"plan_{plan_id}")])
+        
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+def get_payment_methods(plan_id: str) -> InlineKeyboardMarkup:
     keyboard = [
-        [InlineKeyboardButton(text="Пробный (3 дня) - 0$", callback_data="plan_trial")],
-        [InlineKeyboardButton(text="30 дней - 5$", callback_data="plan_30")],
-        [InlineKeyboardButton(text="90 дней - 12$", callback_data="plan_90")],
-        [InlineKeyboardButton(text="180 дней - 20$", callback_data="plan_180")],
-        [InlineKeyboardButton(text="360 дней - 35$", callback_data="plan_360")]
+        [InlineKeyboardButton(text="💳 CryptoBot (USDT, TON, ...)", callback_data=f"pay_crypto_{plan_id}")],
+        [InlineKeyboardButton(text="⭐️ Telegram Stars", callback_data=f"pay_stars_{plan_id}")],
+        [InlineKeyboardButton(text="💎 TON кошелек", callback_data=f"pay_ton_{plan_id}")],
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data="buy_subscription")]
     ]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 

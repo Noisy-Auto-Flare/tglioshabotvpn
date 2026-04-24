@@ -10,21 +10,27 @@ async def init_screens(db: AsyncSession):
     default_screens = {
         "main_menu": {
             "text": "👋 Добро пожаловать в VPN бот!\n\nМы предоставляем быстрый и надежный VPN.\nВыберите действие в меню ниже:",
+            "image_url": "https://img.freepik.com/free-vector/vpn-concept-illustration_114360-3167.jpg"
         },
         "plans": {
             "text": "Выберите подходящий тарифный план:",
+            "image_url": "https://img.freepik.com/free-vector/flat-design-v-letter-logo-template_23-2149429467.jpg"
         },
         "profile": {
             "text": "👤 Профиль\n\n🆔 Ваш ID: <code>{telegram_id}</code>\n💰 Баланс: {balance}$\n📝 Статус: {status_text}\n{vpn_info}",
+            "image_url": "https://img.freepik.com/free-vector/user-circles-set_78370-4704.jpg"
         },
         "info": {
             "text": "ℹ️ <b>Информация</b>\n\n📍 <b>Как подключиться:</b>\n1. Скачайте приложение <b>v2raytun</b> для Android или iOS.\n2. Купите подписку в разделе «Подключиться».\n3. Перейдите в «Мой профиль» и скопируйте VPN-ключ (начинается с vless://).\n4. В приложении v2raytun нажмите «+» или «Импорт» и вставьте ключ.\n5. Нажмите на кнопку подключения.\n\n🔗 <b>Полезные ссылки:</b>\n- Проверка IP: <a href='https://whoer.net'>whoer.net</a>\n- Speedtest: <a href='https://speedtest.net'>speedtest.net</a>\n\n⚠️ Если ключ не отображается в профиле, нажмите кнопку «Получить ключ».",
+            "image_url": "https://img.freepik.com/free-vector/instruction-manual-concept-illustration_114360-15024.jpg"
         },
         "support": {
             "text": "По всем вопросам пишите @admin",
+            "image_url": "https://img.freepik.com/free-vector/customer-support-flat-design-concept_23-2148291411.jpg"
         },
         "referral": {
             "text": "👥 Реферальная система\n\nПриглашайте друзей и получайте бонусы на баланс!\n\nКоличество приглашенных: {count}\nВаша ссылка: {ref_link}",
+            "image_url": "https://img.freepik.com/free-vector/refer-friend-concept-illustration_114360-7039.jpg"
         }
     }
 
@@ -32,4 +38,8 @@ async def init_screens(db: AsyncSession):
         screen = await content_service.get_screen(key)
         if not screen:
             logger.info(f"Initializing default screen: {key}")
-            await content_service.update_screen(key, text=data["text"])
+            await content_service.update_screen(key, text=data["text"], image_url=data.get("image_url"))
+        else:
+            # Update existing screens with images if they don't have one
+            if not screen.image_url and "image_url" in data:
+                await content_service.update_screen(key, image_url=data["image_url"])
