@@ -10,27 +10,27 @@ async def init_screens(db: AsyncSession):
     default_screens = {
         "main_menu": {
             "text": "👋 Добро пожаловать в VPN бот!\n\nМы предоставляем быстрый и надежный VPN.\nВыберите действие в меню ниже:",
-            "image_url": "https://i.imgur.com/NlvaJ8Z.png"
+            "image_url": "https://transf-img.cc/img/lai/69ebdba4aa70a.jpg"
         },
         "plans": {
             "text": "Выберите подходящий тарифный план:",
-            "image_url": "https://i.imgur.com/NlvaJ8Z.png"
+            "image_url": "https://transf-img.cc/img/lai/69ebdba4aa70a.jpg"
         },
         "connect_menu": {
             "text": "🚀 <b>Подключение</b>\n\nВыберите тарифный план:",
-            "image_url": "https://i.imgur.com/NlvaJ8Z.png"
+            "image_url": "https://transf-img.cc/img/lai/69ebdba4aa70a.jpg"
         },
         "payment": {
             "text": "💳 <b>Выберите способ оплаты</b>\n\nТариф: <b>{plan_label}</b>",
-            "image_url": "https://i.imgur.com/Lsy2Oxm.png"
+            "image_url": "https://transf-img.cc/img/lai/69ebdba4aa70a.jpg"
         },
         "profile": {
             "text": "👤 Профиль\n\n🆔 Ваш ID: <code>{telegram_id}</code>\n💰 Баланс: {balance}$\n📝 Статус: {status_text}\n{vpn_info}",
-            "image_url": "https://i.imgur.com/NlvaJ8Z.png"
+            "image_url": "https://transf-img.cc/img/lai/69ebdba4aa70a.jpg"
         },
         "info": {
             "text": "ℹ️ <b>Информация</b>\n\n📍 <b>Как подключиться:</b>\n1. Скачайте приложение <b>v2raytun</b> для Android или iOS.\n2. Купите подписку в разделе «Подключиться».\n3. Перейдите в «Мой профиль» и скопируйте VPN-ключ (начинается с vless://).\n4. В приложении v2raytun нажмите «+» или «Импорт» и вставьте ключ.\n5. Нажмите на кнопку подключения.\n\n🔗 <b>Полезные ссылки:</b>\n- Проверка IP: <a href='https://whoer.net'>whoer.net</a>\n- Speedtest: <a href='https://speedtest.net'>speedtest.net</a>\n\n⚠️ Если ключ не отображается в профиле, нажмите кнопку «Получить ключ».",
-            "image_url": "https://i.imgur.com/NlvaJ8Z.png"
+            "image_url": "https://transf-img.cc/img/lai/69ebdba4aa70a.jpg"
         },
         "support": {
             "text": "По всем вопросам пишите @admin",
