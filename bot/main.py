@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import os
 from typing import Any, Awaitable, Callable, Dict
 from aiogram import Bot, Dispatcher, BaseMiddleware
 from aiogram.types import TelegramObject
@@ -11,7 +10,6 @@ from db.base import Base
 from db.migrations import run_migrations
 import backend.models.models
 from bot.handlers.handlers import router
-from bot.handlers.admin import router as admin_router
 from backend.services.init_db import init_screens
 
 logging.basicConfig(level=logging.INFO)
@@ -54,7 +52,6 @@ async def main():
     dp.update.middleware(DatabaseMiddleware())
     
     # Register routers
-    dp.include_router(admin_router)
     dp.include_router(router)
     
     logger.info("Starting bot polling...")
