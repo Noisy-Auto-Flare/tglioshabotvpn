@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     USE_WEBHOOK: bool = True
     WEBHOOK_URL: Optional[str] = None
     
+    # TON Settings
+    TON_WALLET: str = "UQC-m926Kx-2k7l3o-1-v8-l3-o-1-v8-l3-o-1-v8" # Placeholder, user should change this
+    
     # App Settings
     DEBUG: bool = False
     LOG_LEVEL: str = "INFO"
