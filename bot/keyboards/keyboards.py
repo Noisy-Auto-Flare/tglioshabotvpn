@@ -3,7 +3,7 @@ from backend.core.config import settings
 
 def get_main_menu() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🚀 Подключиться", callback_data="buy_menu")],
+        [InlineKeyboardButton(text="🚀 Подключиться", callback_data="buy_menu", style="danger")],
         [InlineKeyboardButton(text="👤 Мой профиль", callback_data="profile_main")],
         [
             InlineKeyboardButton(text="👥 Реф. система", callback_data="referral_system"),
@@ -28,8 +28,8 @@ def get_tariff_list() -> InlineKeyboardMarkup:
 
 def get_payment_methods(plan_id: str) -> InlineKeyboardMarkup:
     keyboard = [
-        [InlineKeyboardButton(text="💳 Оплатить с баланса", callback_data=f"pay_balance_{plan_id}")],
-        [InlineKeyboardButton(text="🇷🇺 СБП (рубли)", callback_data=f"pay_sbp_{plan_id}")],
+        [InlineKeyboardButton(text="💳 Оплатить с баланса", callback_data=f"pay_balance_{plan_id}", style="danger")],
+        [InlineKeyboardButton(text="🇷🇺 СБП (рубли)", callback_data=f"pay_sbp_{plan_id}", style="danger")],
         [InlineKeyboardButton(text="🤖 CryptoBot", callback_data=f"pay_cryptobot_{plan_id}")],
         [InlineKeyboardButton(text="💳 CryptoMus", callback_data=f"pay_cryptomus_{plan_id}")],
         [InlineKeyboardButton(text="⭐️ Telegram Stars", callback_data=f"pay_stars_{plan_id}")],
@@ -40,7 +40,7 @@ def get_payment_methods(plan_id: str) -> InlineKeyboardMarkup:
 
 def get_deposit_methods() -> InlineKeyboardMarkup:
     keyboard = [
-        [InlineKeyboardButton(text="🇷🇺 СБП (рубли)", callback_data="dep_sbp")],
+        [InlineKeyboardButton(text="🇷🇺 СБП (рубли)", callback_data="dep_sbp", style="danger")],
         [InlineKeyboardButton(text="🤖 CryptoBot", callback_data="dep_cryptobot")],
         [InlineKeyboardButton(text="💳 CryptoMus", callback_data="dep_cryptomus")],
         [InlineKeyboardButton(text="⭐️ Telegram Stars", callback_data="dep_stars")],
