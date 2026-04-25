@@ -68,14 +68,20 @@ async def _show_profile(event: Union[Message, CallbackQuery], db: AsyncSession, 
     sub_result = await db.execute(sub_stmt)
     sub = sub_result.scalar_one_or_none()
 
-    vpn_stmt = (
-        select(VPNKey)
-        .where(VPNKey.user_id == user.id, VPNKey.expire_at > now)
-        .order_by(VPNKey.expire_at.desc())
-        .limit(1)
-    )
-    vpn_result = await db.execute(vpn_stmt)
-    vpn_key = vpn_result.scalar_one_or_none()
+    vpn_key = None
+    if sub:
+        vpn_stmt = (
+            select(VPNKey)
+            .where(
+                VPNKey.user_id == user.id, 
+                VPNKey.subscription_id == sub.id,
+                VPNKey.is_active == True
+            )
+            .order_by(VPNKey.id.desc())
+            .limit(1)
+        )
+        vpn_result = await db.execute(vpn_stmt)
+        vpn_key = vpn_result.scalar_one_or_none()
 
     status_text = "❌ Нет активной подписки"
     vpn_info = ""
@@ -266,9 +272,17 @@ async def execute_reset_key(callback: CallbackQuery, db: AsyncSession):
 
     # 2. Delete old user from RemnaWave
     if old_key and old_key.uuid:
-        await asyncio.to_thread(vpn_service.delete_user, old_key.uuid)
-        old_key.is_active = False
-        old_key.error_message = "Reset by user"
+        logger.info(f"Deleting old RemnaWave user: {old_key.uuid}")
+        success = await asyncio.to_thread(vpn_service.delete_user, old_key.uuid)
+        if success:
+            old_key.is_active = False
+            old_key.error_message = "Reset by user"
+            await db.commit()
+        else:
+            logger.error(f"Failed to delete old RemnaWave user {old_key.uuid}, but proceeding with creation")
+            # We still deactivate it in DB to not show it
+            old_key.is_active = False
+            await db.commit()
 
     # 3. Create new user in RemnaWave
     days_left = max(1, (sub.end_date - datetime.now()).days)
