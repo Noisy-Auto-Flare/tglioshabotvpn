@@ -503,8 +503,23 @@ async def process_check_pay(callback: CallbackQuery, db: AsyncSession):
     else:
         # If TON, we could potentially check the blockchain here
         if payment.provider == "ton":
-            # For now, just a message. In production, poll TonCenter here.
-            await callback.answer("⏳ Транзакция еще не найдена в блокчейне. Обычно это занимает 1-3 минуты.", show_alert=True)
+            is_paid = await ton_service.check_transaction(str(payment.id))
+            if is_paid:
+                payment_service = PaymentService(db)
+                await payment_service.process_success(str(payment.id))
+                from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
+                if isinstance(callback.message, Message):
+                    await callback.message.edit_text(
+                        "✅ <b>Оплата через TON получена!</b>\n\nВаша подписка активирована. Перейдите в профиль, чтобы получить ключ.",
+                        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                            [InlineKeyboardButton(text="👤 Профиль", callback_data="profile_main")],
+                            [InlineKeyboardButton(text="🏠 Меню", callback_data="main_menu")]
+                        ]),
+                        parse_mode="HTML"
+                    )
+                return
+            else:
+                await callback.answer("⏳ Транзакция еще не найдена в блокчейне. Обычно это занимает 1-3 минуты.", show_alert=True)
         else:
             await callback.answer("⏳ Оплата еще не поступила. Попробуйте через минуту.", show_alert=True)
 

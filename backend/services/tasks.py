@@ -87,9 +87,11 @@ async def process_successful_payment(
     payment = Payment(
         user_id=user_id,
         amount=amount,
+        currency="RUB",
         provider=provider,
         status=PaymentStatus.SUCCESS,
-        external_id=external_id
+        external_id=external_id,
+        payload=str(plan_days)
     )
     session.add(payment)
     

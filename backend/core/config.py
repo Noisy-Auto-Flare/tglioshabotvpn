@@ -53,6 +53,7 @@ class Settings(BaseSettings):
     TON_WALLET_ADDRESS: Optional[str] = None
     TONCONNECT_MANIFEST_URL: str = "https://raw.githubusercontent.com/ton-connect/demo-dapp/main/public/tonconnect-manifest.json"
     TON_PRICE_USD: float = 6.0
+    TONCENTER_API_KEY: Optional[str] = None
 
     # App Settings
     DEBUG: bool = False

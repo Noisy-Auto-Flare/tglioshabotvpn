@@ -10,13 +10,14 @@ class SBPService:
     pass
 
 class TONService:
-    def __init__(self, wallet_address: str):
+    def __init__(self, wallet_address: str, api_key: Optional[str] = None):
         self.wallet_address = wallet_address
-        self.api_url = "https://toncenter.com/api/v2" # Or use tonapi.io
+        self.api_key = api_key
+        self.api_url = "https://toncenter.com/api/v2"
 
     async def create_invoice(self, amount_rub: float, order_id: str) -> Dict[str, str]:
         # Convert RUB to TON (simplified, should use real rate)
-        ton_amount = amount_rub / (settings.TON_PRICE_USD * 90) # Assuming 1 USD = 90 RUB
+        ton_amount = amount_rub / (settings.TON_PRICE_USD * 100) # Assuming 1 USD = 100 RUB
         nanotons = int(ton_amount * 10**9)
         
         # TON Deep Link (ton://transfer/<address>?amount=<nanotons>&text=<comment>)
@@ -29,11 +30,54 @@ class TONService:
         }
 
     async def check_transaction(self, order_id: str) -> bool:
-        # Placeholder for actual TON blockchain verification
-        # In a real scenario, you'd poll TonCenter or TonApi for incoming transactions
-        # with the specific comment (order_id)
-        logger.info(f"Checking TON transaction for order {order_id}")
-        return False
+        """
+        Check if there's an incoming transaction with the given order_id as a comment.
+        """
+        if not self.wallet_address:
+            return False
+
+        logger.info(f"Checking TON transactions for wallet {self.wallet_address}, order {order_id}")
+        
+        params = {
+            "address": self.wallet_address,
+            "limit": 20,
+        }
+        if self.api_key:
+            params["api_key"] = self.api_key
+
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                response = await client.get(f"{self.api_url}/getTransactions", params=params)
+                if response.status_code != 200:
+                    logger.error(f"TonCenter API error: {response.status_code} {response.text}")
+                    return False
+                
+                data = response.json()
+                if not data.get("ok"):
+                    logger.error(f"TonCenter API returned not ok: {data}")
+                    return False
+
+                transactions = data.get("result", [])
+                for tx in transactions:
+                    # Look for incoming transactions
+                    in_msg = tx.get("in_msg", {})
+                    if not in_msg:
+                        continue
+                    
+                    # Check comment
+                    msg_text = in_msg.get("message", "")
+                    if msg_text == str(order_id):
+                        # Transaction found!
+                        logger.info(f"TON transaction found for order {order_id}!")
+                        return True
+                        
+                return False
+        except Exception as e:
+            logger.error(f"Failed to check TON transactions: {e}")
+            return False
 
 sbp_service = SBPService()
-ton_service = TONService(settings.TON_WALLET_ADDRESS or "YOUR_WALLET_ADDRESS")
+ton_service = TONService(
+    settings.TON_WALLET_ADDRESS or "",
+    settings.TONCENTER_API_KEY
+)
