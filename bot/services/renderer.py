@@ -1,5 +1,6 @@
 import logging
 from typing import Optional, Any, Union
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import Message, CallbackQuery, InputMediaPhoto
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.services.content import ContentService
@@ -23,10 +24,14 @@ async def render_screen(
     
     if not screen:
         text = f"⚠️ Screen configuration missing: <code>{screen_key}</code>"
-        if isinstance(event, CallbackQuery) and isinstance(message, Message):
-            await message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
-        else:
-            await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
+        try:
+            if isinstance(event, CallbackQuery) and isinstance(message, Message):
+                await message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+            else:
+                await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
+        except TelegramBadRequest as e:
+            if "message is not modified" not in str(e):
+                logger.error(f"Error rendering missing screen: {e}")
         return
 
     try:
@@ -37,32 +42,49 @@ async def render_screen(
     if isinstance(event, CallbackQuery):
         if not isinstance(message, Message):
             return
-        if screen.image_url:
-            try:
-                await message.edit_media(
-                    InputMediaPhoto(media=screen.image_url, caption=text, parse_mode="HTML"),
-                    reply_markup=keyboard,
-                )
-                return
-            except Exception:
-                # If message is not media, fallback to text edit to avoid spam.
-                pass
+        
         try:
-            await message.edit_text(
-                text=text,
-                reply_markup=keyboard,
-                parse_mode="HTML",
-                disable_web_page_preview=True,
-            )
-        except Exception:
-            # Final fallback for media messages when text edit is unsupported.
-            await message.edit_caption(
-                caption=text,
-                reply_markup=keyboard,
-                parse_mode="HTML",
-            )
+            if screen.image_url:
+                try:
+                    await message.edit_media(
+                        InputMediaPhoto(media=screen.image_url, caption=text, parse_mode="HTML"),
+                        reply_markup=keyboard,
+                    )
+                    return
+                except TelegramBadRequest as e:
+                    # If edit_media fails (e.g. current message has no media or same media)
+                    if "message is not modified" in str(e):
+                        return
+                    # If it's not a media message, we'll fall through to edit_text/edit_caption
+            
+            # Try to edit text (works for text messages)
+            try:
+                await message.edit_text(
+                    text=text,
+                    reply_markup=keyboard,
+                    parse_mode="HTML",
+                    disable_web_page_preview=True,
+                )
+            except TelegramBadRequest as e:
+                if "message is not modified" in str(e):
+                    return
+                # If message has no text (it's a photo), use edit_caption
+                if "there is no text in the message to edit" in str(e) or "message can't be edited" in str(e):
+                    await message.edit_caption(
+                        caption=text,
+                        reply_markup=keyboard,
+                        parse_mode="HTML",
+                    )
+                else:
+                    raise
+        except TelegramBadRequest as e:
+            if "message is not modified" not in str(e):
+                logger.error(f"Error in callback render: {e}")
+        except Exception as e:
+            logger.error(f"Unexpected error in callback render: {e}")
         return
 
+    # For Message events (like /start)
     if screen.image_url:
         try:
             await message.answer_photo(
