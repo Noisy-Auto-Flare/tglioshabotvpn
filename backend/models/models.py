@@ -13,7 +13,7 @@ class SubscriptionStatus(str, Enum):
 
 class PaymentStatus(str, Enum):
     PENDING = "pending"
-    COMPLETED = "completed"
+    SUCCESS = "success"
     FAILED = "failed"
 
 class User(Base):
@@ -65,10 +65,13 @@ class Payment(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     amount: Mapped[float] = mapped_column(Float)
-    provider: Mapped[str] = mapped_column(String)  # cryptobot, stars, tonconnect
+    currency: Mapped[str] = mapped_column(String, default="RUB")
+    provider: Mapped[str] = mapped_column(String)  # balance, sbp, cryptobot, cryptomus, stars, ton
     status: Mapped[PaymentStatus] = mapped_column(String, default=PaymentStatus.PENDING)
-    external_id: Mapped[str] = mapped_column(String, unique=True, index=True)
+    external_id: Mapped[Optional[str]] = mapped_column(String, unique=True, index=True)
+    payload: Mapped[Optional[str]] = mapped_column(String) # tariff_id or plan_days
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
     user: Mapped["User"] = relationship(back_populates="payments")
 

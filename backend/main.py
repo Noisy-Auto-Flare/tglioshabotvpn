@@ -10,7 +10,13 @@ from db.base import Base
 from db.migrations import run_migrations
 import backend.models.models # Import models to register them with Base
 from backend.services.init_db import init_screens
-from backend.services.payments import cryptobot_service
+from backend.services.payment_service import PaymentService
+from backend.services.payments.cryptobot import cryptobot_service
+from backend.services.payments.cryptomus import cryptomus_service
+from backend.services.payments.freekassa import freekassa_service
+
+# ... (other code)
+
 from backend.services.tasks import (
     check_expirations,
     payment_polling,
@@ -82,36 +88,49 @@ async def cryptobot_webhook(request: Request, db: AsyncSession = Depends(get_db)
     if data.get("update_type") == "invoice_paid":
         invoice = data.get("payload")
         external_id = str(invoice.get("invoice_id"))
-        amount = float(invoice.get("amount"))
-        payload = invoice.get("payload", "")
         
-        if ":" not in payload:
-            logger.error(f"Invalid payload in webhook: {payload}")
-            return {"ok": True}
-        
-        try:
-            parsed = parse_payment_payload(payload)
-            if not parsed:
-                logger.error(f"Invalid payload in webhook: {payload}")
-                return {"ok": True}
-            user_id, plan_days, traffic_gb = parsed
-            await process_successful_payment(
-                db,
-                user_id,
-                plan_days,
-                amount,
-                external_id,
-                traffic_gb=traffic_gb
-            )
-        except Exception as e:
-            logger.error(f"Failed to process webhook payment: {e}")
-            raise HTTPException(status_code=500, detail="Internal processing error")
+        payment_service = PaymentService(db)
+        success = await payment_service.process_success(external_id)
+        return {"ok": success}
+    return {"ok": True}
+
+@app.post("/api/v1/payments/cryptomus/webhook")
+async def cryptomus_webhook(request: Request, db: AsyncSession = Depends(get_db)):
+    data = await request.json()
+    if not cryptomus_service.verify_webhook(data):
+        raise HTTPException(status_code=400, detail="Invalid signature")
+    
+    status = data.get("status")
+    external_id = data.get("uuid") # Cryptomus uuid for the transaction
+    
+    if status in ["paid", "paid_over"]:
+        payment_service = PaymentService(db)
+        await payment_service.process_success(str(external_id))
     
     return {"ok": True}
 
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+@app.post("/api/v1/payments/freekassa/webhook")
+async def freekassa_webhook(request: Request, db: AsyncSession = Depends(get_db)):
+    # FreeKassa sends data as form-data or query params
+    form_data = await request.form()
+    data = dict(form_data)
+    if not data:
+        data = dict(request.query_params)
+        
+    if not freekassa_service.verify_webhook(data):
+        logger.warning(f"Invalid FreeKassa signature: {data}")
+        raise HTTPException(status_code=400, detail="Invalid signature")
+    
+    order_id = data.get("MERCHANT_ORDER_ID")
+    if order_id:
+        payment_service = PaymentService(db)
+        await payment_service.process_success(str(order_id))
+        
+    return "YES"
 
 @app.get("/debug/vpn/{user_id}")
 async def debug_vpn(user_id: int, db: AsyncSession = Depends(get_db)):

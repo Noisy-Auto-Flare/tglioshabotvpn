@@ -9,7 +9,8 @@ from aiogram import Bot
 from db.session import AsyncSessionLocal
 from backend.models.models import User, Subscription, VPNKey, SubscriptionStatus, Payment, PaymentStatus
 from backend.services.vpn import vpn_service
-from backend.services.payments import cryptobot_service
+from backend.services.payment_service import PaymentService
+from backend.services.payments.cryptobot import cryptobot_service
 from backend.core.config import settings
 from sqlalchemy import select
 
@@ -87,7 +88,7 @@ async def process_successful_payment(
         user_id=user_id,
         amount=amount,
         provider=provider,
-        status=PaymentStatus.COMPLETED,
+        status=PaymentStatus.SUCCESS,
         external_id=external_id
     )
     session.add(payment)
@@ -216,45 +217,36 @@ async def check_expirations():
         await asyncio.sleep(300)
 
 async def payment_polling():
-    """Background task to poll CryptoBot for pending payments."""
+    """Poll for pending payments from providers that don't use webhooks or as a fallback."""
     while True:
         try:
-            async with AsyncSessionLocal() as session:
-                # Get pending payments
-                stmt = select(Payment).where(Payment.status == PaymentStatus.PENDING)
-                result = await session.execute(stmt)
+            async with AsyncSessionLocal() as db:
+                payment_service = PaymentService(db)
+                
+                # 1. Poll CryptoBot
+                stmt = select(Payment).where(
+                    Payment.provider == "cryptobot",
+                    Payment.status == PaymentStatus.PENDING
+                )
+                result = await db.execute(stmt)
                 pending_payments = result.scalars().all()
                 
                 if pending_payments:
-                    invoice_ids = [p.external_id for p in pending_payments]
+                    invoice_ids = ",".join([p.external_id for p in pending_payments if p.external_id])
                     invoices = await cryptobot_service.get_invoices(invoice_ids)
                     
-                    for invoice in invoices:
-                        if invoice.get("status") == "paid":
-                            external_id = str(invoice.get("invoice_id"))
-                            amount_raw = invoice.get("amount")
-                            if amount_raw is None:
-                                logger.error("Invoice has no amount: %s", invoice)
-                                continue
-                            amount = float(amount_raw)
-                            payload = invoice.get("payload", "")
-                            
-                            parsed = parse_payment_payload(payload)
-                            if parsed:
-                                user_id, plan_days, traffic_gb = parsed
-                                await process_successful_payment(
-                                    session,
-                                    user_id,
-                                    plan_days,
-                                    amount,
-                                    external_id,
-                                    traffic_gb=traffic_gb
-                                )
-                            else:
-                                logger.error("Invalid invoice payload format: %s", payload)
+                    if invoices:
+                        for invoice in invoices:
+                            if invoice["status"] == "paid":
+                                await payment_service.process_success(str(invoice["invoice_id"]))
+                
+                # 2. General check for other providers if needed
+                # ...
+                
         except Exception as e:
             logger.error(f"Error in payment polling: {e}")
-        await asyncio.sleep(20)
+            
+        await asyncio.sleep(60) # Poll every 60 seconds
 
 async def vpn_retry_task():
     """Background task to retry failed VPN key creations and provision missing keys for active subs."""

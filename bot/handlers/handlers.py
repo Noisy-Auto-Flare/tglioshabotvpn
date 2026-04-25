@@ -7,6 +7,11 @@ from typing import Optional, Union
 from aiogram import F, Router
 from aiogram.filters import CommandStart
 from aiogram.types import CallbackQuery, Message, LabeledPrice, PreCheckoutQuery
+from backend.services.payment_service import PaymentService
+from backend.services.payments.cryptobot import cryptobot_service
+from backend.services.payments.cryptomus import cryptomus_service
+from backend.services.payments.freekassa import freekassa_service
+from backend.services.payments.abstract import ton_service
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -157,19 +162,7 @@ async def process_trial(callback: CallbackQuery, db: AsyncSession):
     await callback.answer("✅ Пробный период активирован на 3 дня!", show_alert=True)
     await _show_profile(callback, db, user)
 
-@router.callback_query(F.data.startswith("pay_order_"))
-async def open_payment_methods(callback: CallbackQuery, db: AsyncSession):
-    plan_id = callback.data.split("_")[2]
-    plan = settings.PLANS.get(plan_id)
-    if not plan: return
-    
-    await render_screen(
-        callback, db, "payment", 
-        keyboard=get_payment_methods(plan_id),
-        plan_label=plan["label"],
-        price=plan["price"]
-    )
-    await callback.answer()
+from aiogram.types import LabeledPrice, PreCheckoutQuery
 
 @router.callback_query(F.data == "profile_main")
 async def open_profile_main(callback: CallbackQuery, db: AsyncSession):
@@ -184,7 +177,7 @@ async def open_statistics(callback: CallbackQuery, db: AsyncSession):
     if not user: return
 
     # Подсчет покупок
-    orders_stmt = select(func.count(Payment.id)).where(Payment.user_id == user.id, Payment.status == PaymentStatus.COMPLETED)
+    orders_stmt = select(func.count(Payment.id)).where(Payment.user_id == user.id, Payment.status == PaymentStatus.SUCCESS)
     total_orders = (await db.execute(orders_stmt)).scalar() or 0
 
     # Активная подписка
@@ -205,7 +198,7 @@ async def open_statistics(callback: CallbackQuery, db: AsyncSession):
         days_left=days_left,
         total_orders=total_orders,
         protocol_type="VLESS/Reality",
-        used_gb=0, # Временно 0, пока нет интеграции трафика
+        used_gb=0,
         total_gb=total_gb
     )
     await callback.answer()
@@ -228,7 +221,7 @@ async def open_setup_guides(callback: CallbackQuery, db: AsyncSession):
 @router.callback_query(F.data == "referral_system")
 async def open_referral(callback: CallbackQuery, db: AsyncSession):
     user = await _get_user_by_tg(db, callback.from_user.id)
-    if not user: return
+    if not user or not callback.bot: return
     
     count_stmt = select(func.count(User.id)).where(User.referred_by == user.id)
     count = (await db.execute(count_stmt)).scalar() or 0
@@ -239,8 +232,24 @@ async def open_referral(callback: CallbackQuery, db: AsyncSession):
     await render_screen(callback, db, "referral_system", keyboard=get_back_to_main(), count=count, ref_link=ref_link)
     await callback.answer()
 
+@router.callback_query(F.data.startswith("pay_order_"))
+async def open_payment_methods(callback: CallbackQuery, db: AsyncSession):
+    if not callback.data: return
+    plan_id = callback.data.split("_")[2]
+    plan = settings.PLANS.get(plan_id)
+    if not plan: return
+    
+    await render_screen(
+        callback, db, "payment", 
+        keyboard=get_payment_methods(plan_id),
+        plan_label=plan["label"],
+        price=plan["price"]
+    )
+    await callback.answer()
+
 @router.callback_query(F.data.startswith("pay_balance_"))
 async def process_pay_balance(callback: CallbackQuery, db: AsyncSession):
+    if not callback.data: return
     plan_id = callback.data.split("_")[2]
     user = await _get_user_by_tg(db, callback.from_user.id)
     plan = settings.PLANS.get(plan_id)
@@ -251,13 +260,278 @@ async def process_pay_balance(callback: CallbackQuery, db: AsyncSession):
         await callback.answer("❌ Недостаточно средств на балансе!", show_alert=True)
         return
     
+    payment_service = PaymentService(db)
+    ext_id = f"bal_{user.id}_{int(datetime.now().timestamp())}"
+    await payment_service.create_payment(
+        user_id=user.id,
+        tariff_id=plan_id,
+        provider="balance",
+        amount=plan["price"],
+        external_id=ext_id
+    )
+    
     user.balance -= plan["price"]
-    await process_successful_payment(db, user.id, int(plan_id), plan["price"], f"bal_{user.id}_{int(datetime.now().timestamp())}", traffic_gb=plan["gb"], provider="balance")
-    await db.commit()
+    await payment_service.process_success(ext_id)
+    
     await callback.answer("✅ Оплата с баланса прошла успешно!", show_alert=True)
     await _show_profile(callback, db, user)
 
-# Заглушки для других методов оплаты
-@router.callback_query(F.data.regexp(r"^(pay|dep)_(sbp|cryptobot|cryptomus|stars|ton)"))
-async def process_external_payments(callback: CallbackQuery):
-    await callback.answer("🛠 Этот метод оплаты сейчас настраивается...", show_alert=True)
+@router.callback_query(F.data.startswith("pay_cryptobot_"))
+async def process_pay_cryptobot(callback: CallbackQuery, db: AsyncSession):
+    if not callback.data or not callback.message: return
+    plan_id = callback.data.split("_")[2]
+    user = await _get_user_by_tg(db, callback.from_user.id)
+    plan = settings.PLANS.get(plan_id)
+    if not user or not plan: return
+
+    invoice = await cryptobot_service.create_invoice(
+        amount=float(plan["price"]),
+        payload=f"{user.id}:{plan_id}",
+        currency="USD"
+    )
+    
+    if not invoice:
+        await callback.answer("❌ Ошибка CryptoBot. Попробуйте позже.", show_alert=True)
+        return
+
+    payment_service = PaymentService(db)
+    await payment_service.create_payment(
+        user_id=user.id,
+        tariff_id=plan_id,
+        provider="cryptobot",
+        amount=plan["price"],
+        external_id=str(invoice["invoice_id"])
+    )
+    
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="💳 Оплатить", url=invoice["pay_url"])],
+        [InlineKeyboardButton(text="🔄 Проверить оплату", callback_data=f"check_pay_{invoice['invoice_id']}")],
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data=f"pay_order_{plan_id}")]
+    ])
+    
+    if isinstance(callback.message, Message):
+        await callback.message.edit_text(
+            f"🔗 <b>Счет CryptoBot создан!</b>\n\nТариф: {plan['label']}\nСумма: {plan['price']}р\n\nНажмите кнопку ниже для оплаты:",
+            reply_markup=keyboard,
+            parse_mode="HTML"
+        )
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("pay_stars_"))
+async def process_pay_stars(callback: CallbackQuery, db: AsyncSession):
+    if not callback.data or not callback.message: return
+    plan_id = callback.data.split("_")[2]
+    user = await _get_user_by_tg(db, callback.from_user.id)
+    plan = settings.PLANS.get(plan_id)
+    if not user or not plan: return
+
+    stars_amount = int(plan["price"])
+    
+    if isinstance(callback.message, Message):
+        await callback.message.answer_invoice(
+            title=f"VPN: {plan['label']}",
+            description=f"Подписка на {plan_id} дней",
+            payload=f"stars_{user.id}_{plan_id}",
+            provider_token="",
+            currency="XTR",
+            prices=[LabeledPrice(label="Оплата", amount=stars_amount)]
+        )
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("pay_sbp_"))
+async def process_pay_sbp(callback: CallbackQuery, db: AsyncSession):
+    if not callback.data or not callback.message: return
+    plan_id = callback.data.split("_")[2]
+    user = await _get_user_by_tg(db, callback.from_user.id)
+    plan = settings.PLANS.get(plan_id)
+    if not user or not plan: return
+
+    amount = plan["price"]
+    payment_service = PaymentService(db)
+    
+    # Create payment record
+    payment = await payment_service.create_payment(
+        user_id=user.id,
+        tariff_id=plan_id,
+        provider="sbp",
+        amount=amount
+    )
+    
+    # Generate FreeKassa URL
+    pay_url = freekassa_service.generate_payment_url(
+        amount=amount,
+        order_id=str(payment.id)
+    )
+    
+    # Update payment with external_id
+    payment.external_id = str(payment.id)
+    await db.commit()
+
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Оплатить через СБП", url=pay_url)],
+        [InlineKeyboardButton(text="Проверить оплату", callback_data=f"check_pay_{payment.id}")],
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data=f"pay_order_{plan_id}")]
+    ])
+    
+    text = (
+        f"🚀 <b>Оплата через СБП (FreeKassa)</b>\n\n"
+        f"Тариф: {plan['label']}\n"
+        f"К оплате: <b>{amount} RUB</b>\n\n"
+        f"Нажмите кнопку ниже, чтобы перейти к оплате. "
+        f"После оплаты нажмите «Проверить оплату»."
+    )
+    if isinstance(callback.message, Message):
+        await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("pay_ton_"))
+async def process_pay_ton(callback: CallbackQuery, db: AsyncSession):
+    if not callback.data or not callback.message: return
+    plan_id = callback.data.split("_")[2]
+    user = await _get_user_by_tg(db, callback.from_user.id)
+    plan = settings.PLANS.get(plan_id)
+    if not user or not plan: return
+
+    amount = plan["price"]
+    payment_service = PaymentService(db)
+    
+    # Create payment record
+    payment = await payment_service.create_payment(
+        user_id=user.id,
+        tariff_id=plan_id,
+        provider="ton",
+        amount=amount
+    )
+    
+    # Generate TON payment info
+    ton_info = await ton_service.create_invoice(amount, str(payment.id))
+    pay_url = ton_info["pay_url"]
+    ton_amount = ton_info.get("ton_amount", "...")
+    
+    # Update payment with external_id
+    payment.external_id = str(payment.id)
+    await db.commit()
+
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Открыть TON Кошелек", url=pay_url)],
+        [InlineKeyboardButton(text="Проверить оплату", callback_data=f"check_pay_{payment.id}")],
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data=f"pay_order_{plan_id}")]
+    ])
+    
+    text = (
+        f"💎 <b>Оплата через TON Connect</b>\n\n"
+        f"Тариф: {plan['label']}\n"
+        f"К оплате: <b>{ton_amount} TON</b>\n\n"
+        f"Адрес для перевода: <code>{ton_service.wallet_address}</code>\n"
+        f"Комментарий (ОБЯЗАТЕЛЬНО): <code>{payment.id}</code>\n\n"
+        f"Нажмите кнопку ниже или переведите вручную с указанием комментария."
+    )
+    if isinstance(callback.message, Message):
+        await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("pay_cryptomus_"))
+async def process_pay_cryptomus(callback: CallbackQuery, db: AsyncSession):
+    if not callback.data or not callback.message: return
+    plan_id = callback.data.split("_")[2]
+    user = await _get_user_by_tg(db, callback.from_user.id)
+    plan = settings.PLANS.get(plan_id)
+    if not user or not plan: return
+
+    payment_service = PaymentService(db)
+    order_id = f"mus_{user.id}_{int(datetime.now().timestamp())}"
+    
+    invoice = await cryptomus_service.create_invoice(
+        amount=float(plan["price"]),
+        order_id=order_id
+    )
+    
+    if not invoice:
+        await callback.answer("❌ Ошибка CryptoMus. Попробуйте позже.", show_alert=True)
+        return
+
+    await payment_service.create_payment(
+        user_id=user.id,
+        tariff_id=plan_id,
+        provider="cryptomus",
+        amount=plan["price"],
+        external_id=invoice["uuid"] # Cryptomus transaction UUID
+    )
+    
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="💳 Оплатить", url=invoice["url"])],
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data=f"pay_order_{plan_id}")]
+    ])
+    
+    if isinstance(callback.message, Message):
+        await callback.message.edit_text(
+            f"🔗 <b>Счет CryptoMus создан!</b>\n\nТариф: {plan['label']}\nСумма: {plan['price']}р\n\nНажмите кнопку ниже для оплаты:",
+            reply_markup=keyboard,
+            parse_mode="HTML"
+        )
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("check_pay_"))
+async def process_check_pay(callback: CallbackQuery, db: AsyncSession):
+    if not callback.data or not callback.message: return
+    payment_id = int(callback.data.split("_")[2])
+    
+    # Get payment from DB
+    stmt = select(Payment).where(Payment.id == payment_id)
+    res = await db.execute(stmt)
+    payment = res.scalar_one_or_none()
+    
+    if not payment:
+        await callback.answer("⚠️ Платеж не найден.", show_alert=True)
+        return
+        
+    if payment.status == PaymentStatus.SUCCESS:
+         from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
+         if isinstance(callback.message, Message):
+             await callback.message.edit_text(
+                 "✅ <b>Оплата получена!</b>\n\nВаша подписка активирована. Перейдите в профиль, чтобы получить ключ.",
+                 reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                     [InlineKeyboardButton(text="👤 Профиль", callback_data="profile_main")],
+                     [InlineKeyboardButton(text="🏠 Меню", callback_data="main_menu")]
+                 ]),
+                 parse_mode="HTML"
+             )
+    else:
+        # If TON, we could potentially check the blockchain here
+        if payment.provider == "ton":
+            # For now, just a message. In production, poll TonCenter here.
+            await callback.answer("⏳ Транзакция еще не найдена в блокчейне. Обычно это занимает 1-3 минуты.", show_alert=True)
+        else:
+            await callback.answer("⏳ Оплата еще не поступила. Попробуйте через минуту.", show_alert=True)
+
+@router.pre_checkout_query()
+async def process_pre_checkout(pre_checkout_query: PreCheckoutQuery):
+    await pre_checkout_query.answer(ok=True)
+
+@router.message(F.successful_payment)
+async def process_successful_payment_handler(message: Message, db: AsyncSession):
+    if not message.successful_payment: return
+    payload = message.successful_payment.invoice_payload
+    if payload.startswith("stars_"):
+        parts = payload.split("_")
+        user_id = int(parts[1])
+        plan_id = parts[2]
+        external_id = message.successful_payment.telegram_payment_charge_id
+        
+        payment_service = PaymentService(db)
+        await payment_service.create_payment(
+            user_id=user_id,
+            tariff_id=plan_id,
+            provider="stars",
+            amount=message.successful_payment.total_amount,
+            currency="XTR",
+            external_id=external_id
+        )
+        await payment_service.process_success(external_id)
+        await message.answer("✅ Оплата Stars прошла успешно! Подписка активирована.")
+
+

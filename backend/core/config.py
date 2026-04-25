@@ -37,6 +37,15 @@ class Settings(BaseSettings):
     USE_WEBHOOK: bool = True
     WEBHOOK_URL: Optional[str] = None
     
+    # FreeKassa (SBP)
+    FREEKASSA_MERCHANT_ID: Optional[str] = None
+    FREEKASSA_SECRET_1: Optional[str] = None
+    FREEKASSA_SECRET_2: Optional[str] = None
+
+    # CryptoMus
+    CRYPTOMUS_API_KEY: Optional[str] = None
+    CRYPTOMUS_MERCHANT_ID: Optional[str] = None
+    
     # Telegram Stars
     STARS_CONVERSION_RATE: int = 50 # 1 USD = 50 Stars (approximately)
 
