@@ -9,7 +9,7 @@ def get_main_menu() -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="👥 Рефералы", callback_data="ref"),
             InlineKeyboardButton(text="ℹ️ Информация", callback_data="info"),
         ],
-        [InlineKeyboardButton(text="🆘 Поддержка", callback_data="support")],
+        [InlineKeyboardButton(text="🆘 Поддержка", url="https://t.me/stingersup")],
     ])
 
 def get_subscription_plans() -> InlineKeyboardMarkup:

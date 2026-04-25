@@ -12,7 +12,7 @@ async def render_screen(
     screen_key: str,
     keyboard: Optional[Any] = None,
     **format_kwargs
-):
+) -> None:
     """Render one logical screen with edit-first strategy for callback navigation."""
     content_service = ContentService(db)
     screen = await content_service.get_screen(screen_key)

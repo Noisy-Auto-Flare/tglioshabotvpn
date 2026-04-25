@@ -193,12 +193,6 @@ async def open_info(callback: CallbackQuery, db: AsyncSession):
     await callback.answer()
 
 
-@router.callback_query(F.data == "support")
-async def open_support(callback: CallbackQuery, db: AsyncSession):
-    await render_screen(callback, db, "support", keyboard=get_main_menu())
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("plan_"))
 async def process_plan_selection(callback: CallbackQuery, db: AsyncSession):
     if not callback.data:
