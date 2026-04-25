@@ -76,7 +76,8 @@ class PaymentService:
                 vpn_service.create_user_and_get_link,
                 user.telegram_id,
                 traffic_gb,
-                plan_days
+                plan_days,
+                sub_id=subscription.id
             )
             
             if vpn_data:

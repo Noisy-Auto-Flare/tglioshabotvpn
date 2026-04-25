@@ -320,7 +320,8 @@ async def execute_reset_key(callback: CallbackQuery, db: AsyncSession):
         vpn_service.create_user_and_get_link,
         user.telegram_id,
         sub.traffic_limit_gb or 30,
-        days_left
+        days_left,
+        sub_id=sub.id
     )
 
     if vpn_data:

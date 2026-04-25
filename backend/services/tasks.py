@@ -140,7 +140,8 @@ async def process_successful_payment(
         vpn_service.create_user_and_get_link,
         user.telegram_id,
         effective_traffic_gb,
-        plan_days
+        plan_days,
+        sub_id=sub.id
     )
     duration_ms = int((perf_counter() - started_at) * 1000)
     logger.info(
@@ -296,15 +297,16 @@ async def vpn_retry_task():
                         if sub and sub.traffic_limit_gb:
                             traffic_gb = sub.traffic_limit_gb
 
-                    link = await asyncio.to_thread(
+                    vpn_data = await asyncio.to_thread(
                         vpn_service.create_user_and_get_link,
                         user.telegram_id,
                         traffic_gb,
-                        remaining_days
+                        remaining_days,
+                        sub_id=vpn_key.subscription_id
                     )
-                    if link:
-                        vpn_key.uuid = link.rstrip("/").split("/")[-1]
-                        vpn_key.config = link
+                    if vpn_data:
+                        vpn_key.uuid = vpn_data["uuid"]
+                        vpn_key.config = vpn_data["link"]
                         vpn_key.is_active = True
                         vpn_key.error_message = None
                         await session.commit()
@@ -337,7 +339,8 @@ async def vpn_retry_task():
                             vpn_service.create_user_and_get_link,
                             user.telegram_id,
                             traffic_gb,
-                            remaining_days
+                            remaining_days,
+                            sub_id=sub.id
                         )
 
                         config = generate_mock_config(user.telegram_id, "pending")

@@ -187,13 +187,25 @@ class RemnaWaveService:
                 
         return {"success": False, "error": "All creation endpoints failed"}
 
-    def create_user_and_get_link(self, telegram_id: int, data_limit_gb: int = 30, days: int = 30) -> Optional[Dict[str, str]]:
+    def get_user_by_username(self, username: str) -> Optional[Dict[str, Any]]:
+        """Finds a user by username by listing all users."""
+        users = self.list_users()
+        for user in users:
+            if user.get("username") == username:
+                return user
+        return None
+
+    def create_user_and_get_link(self, telegram_id: int, data_limit_gb: int = 30, days: int = 30, sub_id: Optional[int] = None) -> Optional[Dict[str, str]]:
         """Creates a RemnaWave user via curl_cffi and returns subscription URL and UUID."""
         panel_base = self.api_url
         if panel_base.endswith("/api"):
             panel_base = panel_base[:-4]
 
-        unique_username = f"user_{telegram_id}_{int(time.time())}"
+        if sub_id:
+            unique_username = f"user_{telegram_id}_sub_{sub_id}"
+        else:
+            unique_username = f"user_{telegram_id}_{int(time.time())}"
+        
         expire_at = (datetime.now() + timedelta(days=days)).isoformat() + "Z"
         payload = {
             "username": unique_username,
@@ -219,10 +231,15 @@ class RemnaWaveService:
                 verify=False
             )
             if response.status_code not in (200, 201):
-                logger.error("RemnaWave create user failed: status=%s body=%s", response.status_code, response.text)
-                return None
-
-            data = response.json()
+                logger.warning("RemnaWave create user failed: status=%s body=%s. Checking if user already exists...", response.status_code, response.text)
+                existing_user = self.get_user_by_username(unique_username)
+                if existing_user:
+                    logger.info("User %s already exists, using existing record", unique_username)
+                    data = existing_user
+                else:
+                    return None
+            else:
+                data = response.json()
             inner = data.get("response", data) if isinstance(data, dict) else {}
             user_uuid = self._deep_find_first(inner, ["uuid"])
             short_uuid = self._deep_find_first(inner, ["shortUuid"])
