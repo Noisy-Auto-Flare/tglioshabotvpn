@@ -67,8 +67,8 @@ async def run_migrations(engine: AsyncEngine):
             needed_payments_columns = [
                 ("currency", "TEXT DEFAULT 'RUB'"),
                 ("payload", "TEXT"),
-                ("created_at", "DATETIME DEFAULT CURRENT_TIMESTAMP"),
-                ("updated_at", "DATETIME DEFAULT CURRENT_TIMESTAMP")
+                ("created_at", "DATETIME DEFAULT '2026-04-25 00:00:00'"),
+                ("updated_at", "DATETIME DEFAULT '2026-04-25 00:00:00'")
             ]
             
             for col_name, col_type in needed_payments_columns:
