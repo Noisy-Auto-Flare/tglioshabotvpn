@@ -41,7 +41,7 @@ from bot.keyboards.keyboards import (
     get_back_to_main,
     get_deposit_methods,
 )
-from bot.services.renderer import render_screen
+from bot.services.renderer import render_screen, safe_edit
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -311,10 +311,10 @@ async def process_pay_cryptobot(callback: CallbackQuery, db: AsyncSession):
     ])
     
     if isinstance(callback.message, Message):
-        await callback.message.edit_text(
+        await safe_edit(
+            callback.message,
             f"🔗 <b>Счет CryptoBot создан!</b>\n\nТариф: {plan['label']}\nСумма: {plan['price']}р\n\nНажмите кнопку ниже для оплаты:",
-            reply_markup=keyboard,
-            parse_mode="HTML"
+            reply_markup=keyboard
         )
     await callback.answer()
 
@@ -383,7 +383,7 @@ async def process_pay_sbp(callback: CallbackQuery, db: AsyncSession):
         f"После оплаты нажмите «Проверить оплату»."
     )
     if isinstance(callback.message, Message):
-        await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+        await safe_edit(callback.message, text, reply_markup=keyboard)
     await callback.answer()
 
 @router.callback_query(F.data.startswith("pay_ton_"))
@@ -430,7 +430,7 @@ async def process_pay_ton(callback: CallbackQuery, db: AsyncSession):
         f"Нажмите кнопку ниже или переведите вручную с указанием комментария."
     )
     if isinstance(callback.message, Message):
-        await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+        await safe_edit(callback.message, text, reply_markup=keyboard)
     await callback.answer()
 
 @router.callback_query(F.data.startswith("pay_cryptomus_"))
@@ -468,10 +468,10 @@ async def process_pay_cryptomus(callback: CallbackQuery, db: AsyncSession):
     ])
     
     if isinstance(callback.message, Message):
-        await callback.message.edit_text(
+        await safe_edit(
+            callback.message,
             f"🔗 <b>Счет CryptoMus создан!</b>\n\nТариф: {plan['label']}\nСумма: {plan['price']}р\n\nНажмите кнопку ниже для оплаты:",
-            reply_markup=keyboard,
-            parse_mode="HTML"
+            reply_markup=keyboard
         )
     await callback.answer()
 
@@ -492,13 +492,13 @@ async def process_check_pay(callback: CallbackQuery, db: AsyncSession):
     if payment.status == PaymentStatus.SUCCESS:
          from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
          if isinstance(callback.message, Message):
-             await callback.message.edit_text(
+             await safe_edit(
+                 callback.message,
                  "✅ <b>Оплата получена!</b>\n\nВаша подписка активирована. Перейдите в профиль, чтобы получить ключ.",
                  reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                      [InlineKeyboardButton(text="👤 Профиль", callback_data="profile_main")],
                      [InlineKeyboardButton(text="🏠 Меню", callback_data="main_menu")]
-                 ]),
-                 parse_mode="HTML"
+                 ])
              )
     else:
         # If TON, we could potentially check the blockchain here
@@ -509,13 +509,13 @@ async def process_check_pay(callback: CallbackQuery, db: AsyncSession):
                 await payment_service.process_success(str(payment.id))
                 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
                 if isinstance(callback.message, Message):
-                    await callback.message.edit_text(
+                    await safe_edit(
+                        callback.message,
                         "✅ <b>Оплата через TON получена!</b>\n\nВаша подписка активирована. Перейдите в профиль, чтобы получить ключ.",
                         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                             [InlineKeyboardButton(text="👤 Профиль", callback_data="profile_main")],
                             [InlineKeyboardButton(text="🏠 Меню", callback_data="main_menu")]
-                        ]),
-                        parse_mode="HTML"
+                        ])
                     )
                 return
             else:

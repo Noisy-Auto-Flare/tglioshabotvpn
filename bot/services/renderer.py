@@ -7,6 +7,38 @@ from backend.services.content import ContentService
 
 logger = logging.getLogger(__name__)
 
+async def safe_edit(
+    message: Message,
+    text: str,
+    reply_markup: Optional[Any] = None,
+    parse_mode: str = "HTML"
+) -> None:
+    """Safely edit a message, handling both text and media (photo) messages."""
+    try:
+        # Try to edit as text message
+        await message.edit_text(
+            text=text,
+            reply_markup=reply_markup,
+            parse_mode=parse_mode,
+            disable_web_page_preview=True
+        )
+    except TelegramBadRequest as e:
+        if "message is not modified" in str(e):
+            return
+        # If it has a photo/media, use edit_caption
+        if "there is no text in the message to edit" in str(e) or "message can't be edited" in str(e):
+            try:
+                await message.edit_caption(
+                    caption=text,
+                    reply_markup=reply_markup,
+                    parse_mode=parse_mode
+                )
+            except TelegramBadRequest as e2:
+                if "message is not modified" not in str(e2):
+                    logger.error(f"Failed to edit caption: {e2}")
+        else:
+            logger.error(f"Failed to edit text: {e}")
+
 async def render_screen(
     event: Union[Message, CallbackQuery],
     db: AsyncSession,
@@ -26,7 +58,7 @@ async def render_screen(
         text = f"⚠️ Screen configuration missing: <code>{screen_key}</code>"
         try:
             if isinstance(event, CallbackQuery) and isinstance(message, Message):
-                await message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+                await safe_edit(message, text, reply_markup=keyboard)
             else:
                 await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
         except TelegramBadRequest as e:
@@ -57,26 +89,8 @@ async def render_screen(
                         return
                     # If it's not a media message, we'll fall through to edit_text/edit_caption
             
-            # Try to edit text (works for text messages)
-            try:
-                await message.edit_text(
-                    text=text,
-                    reply_markup=keyboard,
-                    parse_mode="HTML",
-                    disable_web_page_preview=True,
-                )
-            except TelegramBadRequest as e:
-                if "message is not modified" in str(e):
-                    return
-                # If message has no text (it's a photo), use edit_caption
-                if "there is no text in the message to edit" in str(e) or "message can't be edited" in str(e):
-                    await message.edit_caption(
-                        caption=text,
-                        reply_markup=keyboard,
-                        parse_mode="HTML",
-                    )
-                else:
-                    raise
+            # Try to edit text or caption
+            await safe_edit(message, text, reply_markup=keyboard)
         except TelegramBadRequest as e:
             if "message is not modified" not in str(e):
                 logger.error(f"Error in callback render: {e}")
