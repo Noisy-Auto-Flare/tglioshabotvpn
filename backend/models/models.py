@@ -40,6 +40,7 @@ class Subscription(Base):
     start_date: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     end_date: Mapped[datetime] = mapped_column(DateTime)
     status: Mapped[SubscriptionStatus] = mapped_column(String, default=SubscriptionStatus.ACTIVE)
+    reset_count: Mapped[int] = mapped_column(Integer, default=0)
 
     user: Mapped["User"] = relationship(back_populates="subscriptions")
     vpn_key: Mapped[Optional["VPNKey"]] = relationship(back_populates="subscription", cascade="all, delete-orphan")

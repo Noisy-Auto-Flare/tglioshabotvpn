@@ -253,6 +253,31 @@ class RemnaWaveService:
             logger.exception("create_user_and_get_link failed for telegram_id=%s: %s", telegram_id, e)
             return None
 
+    def delete_user(self, user_uuid: str) -> bool:
+        """Deletes user from RemnaWave via DELETE /api/users/{uuid}."""
+        panel_base = self.api_url
+        if panel_base.endswith("/api"):
+            panel_base = panel_base[:-4]
+
+        headers = self._build_panel_headers(panel_base)
+        try:
+            response = curl_requests.delete(
+                f"{panel_base}/api/users/{user_uuid}",
+                headers=headers,
+                impersonate="chrome120",
+                http_version=CurlHttpVersion.V1_1,
+                timeout=30,
+                verify=False
+            )
+            if response.status_code in (200, 204):
+                logger.info("Successfully deleted user_uuid=%s from RemnaWave", user_uuid)
+                return True
+            logger.error("RemnaWave delete user failed: status=%s body=%s", response.status_code, response.text)
+            return False
+        except Exception as e:
+            logger.exception("Failed to delete user %s from RemnaWave: %s", user_uuid, e)
+            return False
+
     def add_user_to_squad(self, user_uuid: str, squad_uuid: str) -> bool:
         """Adds user to Internal Squad via PATCH /api/users."""
         panel_base = self.api_url

@@ -40,6 +40,8 @@ from bot.keyboards.keyboards import (
     get_setup_guides_keyboard,
     get_back_to_main,
     get_deposit_methods,
+    get_reset_key_confirm_keyboard,
+    get_sub_management_keyboard,
 )
 from bot.services.renderer import render_screen, safe_edit
 
@@ -170,6 +172,131 @@ async def open_profile_main(callback: CallbackQuery, db: AsyncSession):
     if not user: return
     await _show_profile(callback, db, user)
     await callback.answer()
+
+@router.callback_query(F.data == "sub_management")
+async def open_sub_management(callback: CallbackQuery, db: AsyncSession):
+    user = await _get_user_by_tg(db, callback.from_user.id)
+    if not user: return
+
+    # Get active subscription
+    sub_stmt = select(Subscription).where(
+        Subscription.user_id == user.id,
+        Subscription.status == SubscriptionStatus.ACTIVE,
+        Subscription.end_date > datetime.now()
+    ).order_by(Subscription.end_date.desc()).limit(1)
+    sub = (await db.execute(sub_stmt)).scalar_one_or_none()
+
+    if not sub:
+        await callback.answer("❌ У вас нет активной подписки.", show_alert=True)
+        return
+
+    plan_label = settings.PLANS.get(sub.plan, {}).get("label", f"{sub.plan} дней")
+    end_date_str = sub.end_date.strftime("%d.%m.%Y")
+
+    await render_screen(
+        callback, db, "sub_management",
+        keyboard=get_sub_management_keyboard(),
+        plan_label=plan_label,
+        end_date=end_date_str
+    )
+    await callback.answer()
+
+@router.callback_query(F.data == "get_key")
+async def process_get_key(callback: CallbackQuery, db: AsyncSession):
+    user = await _get_user_by_tg(db, callback.from_user.id)
+    if not user: return
+    
+    # Just show profile which contains the key
+    await _show_profile(callback, db, user)
+    await callback.answer("🔑 Ваш ключ отображен в профиле")
+
+@router.callback_query(F.data == "reset_key_confirm")
+async def confirm_reset_key(callback: CallbackQuery, db: AsyncSession):
+    user = await _get_user_by_tg(db, callback.from_user.id)
+    if not user: return
+
+    # Get active subscription
+    sub_stmt = select(Subscription).where(
+        Subscription.user_id == user.id,
+        Subscription.status == SubscriptionStatus.ACTIVE,
+        Subscription.end_date > datetime.now()
+    ).order_by(Subscription.end_date.desc()).limit(1)
+    sub = (await db.execute(sub_stmt)).scalar_one_or_none()
+
+    if not sub:
+        await callback.answer("❌ У вас нет активной подписки для сброса ключа.", show_alert=True)
+        return
+
+    remaining = 3 - sub.reset_count
+    if remaining <= 0:
+        await callback.answer("❌ Вы исчерпали лимит сбросов ключа (макс. 3) для этой подписки.", show_alert=True)
+        return
+
+    await render_screen(
+        callback, db, "reset_key_confirm",
+        keyboard=get_reset_key_confirm_keyboard(),
+        remaining_resets=remaining
+    )
+    await callback.answer()
+
+@router.callback_query(F.data == "reset_key_execute")
+async def execute_reset_key(callback: CallbackQuery, db: AsyncSession):
+    user = await _get_user_by_tg(db, callback.from_user.id)
+    if not user: return
+
+    # 1. Get active sub and key
+    sub_stmt = select(Subscription).where(
+        Subscription.user_id == user.id,
+        Subscription.status == SubscriptionStatus.ACTIVE,
+        Subscription.end_date > datetime.now()
+    ).order_by(Subscription.end_date.desc()).limit(1)
+    sub = (await db.execute(sub_stmt)).scalar_one_or_none()
+
+    if not sub or sub.reset_count >= 3:
+        await callback.answer("❌ Сброс невозможен.", show_alert=True)
+        return
+
+    # Get current active key
+    vpn_stmt = select(VPNKey).where(
+        VPNKey.user_id == user.id,
+        VPNKey.subscription_id == sub.id,
+        VPNKey.is_active == True
+    ).order_by(VPNKey.id.desc()).limit(1)
+    old_key = (await db.execute(vpn_stmt)).scalar_one_or_none()
+
+    # 2. Delete old user from RemnaWave
+    if old_key and old_key.uuid:
+        await asyncio.to_thread(vpn_service.delete_user, old_key.uuid)
+        old_key.is_active = False
+        old_key.error_message = "Reset by user"
+
+    # 3. Create new user in RemnaWave
+    days_left = max(1, (sub.end_date - datetime.now()).days)
+    new_link = await asyncio.to_thread(
+        vpn_service.create_user_and_get_link,
+        user.telegram_id,
+        sub.traffic_limit_gb or 30,
+        days_left
+    )
+
+    if new_link:
+        new_uuid = new_link.rstrip("/").split("/")[-1]
+        new_key = VPNKey(
+            user_id=user.id,
+            subscription_id=sub.id,
+            uuid=new_uuid,
+            config=new_link,
+            expire_at=sub.end_date,
+            is_active=True
+        )
+        db.add(new_key)
+        sub.reset_count += 1
+        await db.commit()
+        await callback.answer("✅ Ключ успешно сброшен!", show_alert=True)
+    else:
+        await callback.answer("❌ Ошибка при создании нового ключа. Обратитесь в поддержку.", show_alert=True)
+
+    await _show_profile(callback, db, user)
 
 @router.callback_query(F.data == "statistics")
 async def open_statistics(callback: CallbackQuery, db: AsyncSession):

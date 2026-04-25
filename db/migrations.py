@@ -59,6 +59,14 @@ async def run_migrations(engine: AsyncEngine):
                     logger.info("Migration: traffic_limit_gb added successfully.")
                 except Exception as e:
                     logger.error(f"Migration failed for subscriptions.traffic_limit_gb: {e}")
+            
+            if "reset_count" not in subs_columns:
+                logger.info("Migration: Adding reset_count column to subscriptions table...")
+                try:
+                    await conn.execute(text("ALTER TABLE subscriptions ADD COLUMN reset_count INTEGER DEFAULT 0"))
+                    logger.info("Migration: reset_count added successfully.")
+                except Exception as e:
+                    logger.error(f"Migration failed for subscriptions.reset_count: {e}")
 
         # 3. Check payments
         payments_columns = await get_columns("payments")

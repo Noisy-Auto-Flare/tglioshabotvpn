@@ -47,6 +47,14 @@ async def init_screens(db: AsyncSession):
         "referral_system": {
             "text": "👥 <b>Реферальная система</b>\n\nПриглашайте друзей и получайте бонусы на баланс!\n\nКоличество приглашенных: <b>{count}</b>\nВаша ссылка: <code>{ref_link}</code>",
             "image_url": "https://transf-img.cc/img/lai/69ebdba4aa70a.jpg"
+        },
+        "reset_key_confirm": {
+            "text": "⚠️ <b>Подтверждение сброса ключа</b>\n\nВы уверены что хотите удалить старый ключ и получить новый?\nДанная функция доступна всего лишь 3 раза.\n\nКоличество доступных сбросов для текущей подписки: <b>{remaining_resets}</b>",
+            "image_url": "https://transf-img.cc/img/lai/69ebdba4aa70a.jpg"
+        },
+        "sub_management": {
+            "text": "⚙️ <b>Управление подпиской</b>\n\nЗдесь вы можете управлять вашим VPN-доступом, обновить ключ или продлить текущий тариф.\n\nТариф: <b>{plan_label}</b>\nДо: <b>{end_date}</b>",
+            "image_url": "https://transf-img.cc/img/lai/69ebdba4aa70a.jpg"
         }
     }
 

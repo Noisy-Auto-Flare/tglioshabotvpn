@@ -52,9 +52,25 @@ def get_deposit_methods() -> InlineKeyboardMarkup:
 def get_profile_main_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📊 Статистика", callback_data="statistics")],
-        [InlineKeyboardButton(text="💰 Пополнить баланс", callback_data="deposit_menu")],
+        [InlineKeyboardButton(text="⚙️ Управление подпиской", callback_data="sub_management")],
+        [InlineKeyboardButton(text="� Пополнить баланс", callback_data="deposit_menu")],
         [InlineKeyboardButton(text="📜 Мои подписки", callback_data="my_subscriptions")],
         [InlineKeyboardButton(text="⬅️ Назад", callback_data="main_menu")],
+    ])
+
+def get_sub_management_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔑 Получить ключ", callback_data="get_key")],
+        [InlineKeyboardButton(text="🔄 Обновить ключ", callback_data="reset_key_confirm")],
+        [InlineKeyboardButton(text="➕ Продлить подписку", callback_data="tariff_list")],
+        [InlineKeyboardButton(text="📖 Инструкции", callback_data="setup_guides")],
+        [InlineKeyboardButton(text="⬅️ Назад в профиль", callback_data="profile_main")],
+    ])
+
+def get_reset_key_confirm_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✅ Подтвердить", callback_data="reset_key_execute", style="danger")],
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data="sub_management")],
     ])
 
 def get_info_menu_keyboard() -> InlineKeyboardMarkup:
