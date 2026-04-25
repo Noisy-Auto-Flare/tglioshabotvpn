@@ -121,6 +121,20 @@ async def process_successful_payment(
         logger.error(f"User {user_id} not found during payment processing")
         return False
 
+    # 3.1 Delete old active keys for this user to avoid "orphaned" users in RemnaWave
+    try:
+        old_keys_stmt = select(VPNKey).where(VPNKey.user_id == user_id, VPNKey.is_active == True)
+        old_keys_res = await session.execute(old_keys_stmt)
+        old_keys = old_keys_res.scalars().all()
+        for old_key in old_keys:
+            if old_key.uuid:
+                logger.info(f"Deleting old RemnaWave user before new provisioning: {old_key.uuid}")
+                await asyncio.to_thread(vpn_service.delete_user, old_key.uuid)
+                old_key.is_active = False
+                old_key.error_message = "Replaced by new subscription"
+    except Exception as e:
+        logger.error(f"Error cleaning up old keys for user {user_id}: {e}")
+
     started_at = perf_counter()
     subscription_link = await asyncio.to_thread(
         vpn_service.create_user_and_get_link,

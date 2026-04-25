@@ -313,6 +313,44 @@ class RemnaWaveService:
             logger.exception("Failed to delete user %s from RemnaWave: %s", identifier, e)
             return False
 
+    def list_users(self) -> List[Dict[str, Any]]:
+        """Lists all users from RemnaWave via GET /api/users."""
+        panel_base = self.api_url
+        if panel_base.endswith("/api"):
+            panel_base = panel_base[:-4]
+
+        headers = self._build_panel_headers(panel_base)
+        try:
+            response = curl_requests.get(
+                f"{panel_base}/api/users",
+                headers=headers,
+                impersonate="chrome120",
+                http_version=CurlHttpVersion.V1_1,
+                timeout=30,
+                verify=False
+            )
+            if response.status_code == 200:
+                data = response.json()
+                # Handle both {response: [...]} and [...]
+                users = data.get("response", data) if isinstance(data, dict) else data
+                return users if isinstance(users, list) else []
+            logger.error("Failed to list users: status=%s body=%s", response.status_code, response.text)
+            return []
+        except Exception as e:
+            logger.exception("Error listing users: %s", e)
+            return []
+
+    def delete_all_users(self) -> int:
+        """Deletes all users from RemnaWave. USE WITH CAUTION."""
+        users = self.list_users()
+        count = 0
+        for user in users:
+            uuid = user.get("uuid")
+            if uuid:
+                if self.delete_user(uuid):
+                    count += 1
+        return count
+
     def get_uuid_by_short_uuid(self, short_uuid: str) -> Optional[str]:
         """Resolves shortUuid to long UUID via GET /api/users/by-short-uuid/{shortUuid}."""
         panel_base = self.api_url

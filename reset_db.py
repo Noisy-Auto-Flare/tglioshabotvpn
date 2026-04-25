@@ -10,6 +10,7 @@ from db.session import engine, AsyncSessionLocal
 from db.base import Base
 import backend.models.models  # Required to register models
 from backend.services.init_db import init_screens
+from backend.services.vpn import vpn_service
 from sqlalchemy import text
 
 logging.basicConfig(level=logging.INFO)
@@ -44,6 +45,12 @@ async def reset_database():
             logger.info("Initializing default screens...")
             await init_screens(db)
             await db.commit()
+            
+        # Clean up RemnaWave panel if requested
+        if "--with-vpn" in sys.argv:
+            logger.info("Cleaning up RemnaWave panel users...")
+            deleted_count = await asyncio.to_thread(vpn_service.delete_all_users)
+            logger.info(f"Deleted {deleted_count} users from RemnaWave.")
             
         logger.info("Database has been successfully reset.")
     except Exception as e:

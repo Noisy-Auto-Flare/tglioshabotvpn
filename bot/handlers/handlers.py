@@ -271,18 +271,26 @@ async def execute_reset_key(callback: CallbackQuery, db: AsyncSession):
     old_key = (await db.execute(vpn_stmt)).scalar_one_or_none()
 
     # 2. Delete old user from RemnaWave
-    if old_key and old_key.uuid:
-        logger.info(f"Deleting old RemnaWave user: {old_key.uuid}")
-        success = await asyncio.to_thread(vpn_service.delete_user, old_key.uuid)
-        if success:
-            old_key.is_active = False
-            old_key.error_message = "Reset by user"
-            await db.commit()
+    if old_key:
+        if old_key.uuid:
+            logger.info(f"Deleting old RemnaWave user: {old_key.uuid}")
+            success = await asyncio.to_thread(vpn_service.delete_user, old_key.uuid)
+            if success:
+                logger.info(f"Successfully deleted RemnaWave user: {old_key.uuid}")
+                old_key.is_active = False
+                old_key.error_message = "Reset by user"
+                await db.commit()
+            else:
+                logger.error(f"Failed to delete old RemnaWave user {old_key.uuid}, but proceeding with creation")
+                # We still deactivate it in DB to not show it
+                old_key.is_active = False
+                await db.commit()
         else:
-            logger.error(f"Failed to delete old RemnaWave user {old_key.uuid}, but proceeding with creation")
-            # We still deactivate it in DB to not show it
+            logger.warning(f"Old key found (id={old_key.id}) but has no UUID to delete from RemnaWave")
             old_key.is_active = False
             await db.commit()
+    else:
+        logger.info(f"No active old key found to delete for user {user.id}")
 
     # 3. Create new user in RemnaWave
     days_left = max(1, (sub.end_date - datetime.now()).days)
