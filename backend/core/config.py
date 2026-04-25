@@ -56,6 +56,7 @@ class Settings(BaseSettings):
     TONCENTER_API_KEY: Optional[str] = None
 
     # App Settings
+    USD_RUB_RATE: float = 90.0 # 1 USD = 90 RUB
     DEBUG: bool = False
     LOG_LEVEL: str = "INFO"
 

@@ -16,8 +16,12 @@ class TONService:
         self.api_url = "https://toncenter.com/api/v2"
 
     async def create_invoice(self, amount_rub: float, order_id: str) -> Dict[str, str]:
-        # Convert RUB to TON (simplified, should use real rate)
-        ton_amount = amount_rub / (settings.TON_PRICE_USD * 100) # Assuming 1 USD = 100 RUB
+        # Convert RUB to TON using TON price in USD and USD/RUB rate
+        # 1 TON = TON_PRICE_USD (e.g. 6$)
+        # 1 $ = USD_RUB_RATE (e.g. 100р)
+        # 1 TON = TON_PRICE_USD * USD_RUB_RATE (e.g. 600р)
+        ton_price_rub = settings.TON_PRICE_USD * settings.USD_RUB_RATE
+        ton_amount = amount_rub / ton_price_rub
         nanotons = int(ton_amount * 10**9)
         
         # TON Deep Link (ton://transfer/<address>?amount=<nanotons>&text=<comment>)

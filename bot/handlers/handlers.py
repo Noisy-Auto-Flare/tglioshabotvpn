@@ -284,8 +284,9 @@ async def process_pay_cryptobot(callback: CallbackQuery, db: AsyncSession):
     plan = settings.PLANS.get(plan_id)
     if not user or not plan: return
 
+    amount_usd = float(plan["price"]) / settings.USD_RUB_RATE
     invoice = await cryptobot_service.create_invoice(
-        amount=float(plan["price"]),
+        amount=amount_usd,
         payload=f"{user.id}:{plan_id}",
         currency="USD"
     )
@@ -313,7 +314,7 @@ async def process_pay_cryptobot(callback: CallbackQuery, db: AsyncSession):
     if isinstance(callback.message, Message):
         await safe_edit(
             callback.message,
-            f"🔗 <b>Счет CryptoBot создан!</b>\n\nТариф: {plan['label']}\nСумма: {plan['price']}р\n\nНажмите кнопку ниже для оплаты:",
+            f"🔗 <b>Счет CryptoBot создан!</b>\n\nТариф: {plan['label']}\nСумма: {amount_usd:.2f} USD\n\nНажмите кнопку ниже для оплаты:",
             reply_markup=keyboard
         )
     await callback.answer()
@@ -470,7 +471,7 @@ async def process_pay_cryptomus(callback: CallbackQuery, db: AsyncSession):
     if isinstance(callback.message, Message):
         await safe_edit(
             callback.message,
-            f"🔗 <b>Счет CryptoMus создан!</b>\n\nТариф: {plan['label']}\nСумма: {plan['price']}р\n\nНажмите кнопку ниже для оплаты:",
+            f"🔗 <b>Счет CryptoMus создан!</b>\n\nТариф: {plan['label']}\nСумма: {plan['price']} RUB\n\nНажмите кнопку ниже для оплаты:",
             reply_markup=keyboard
         )
     await callback.answer()
