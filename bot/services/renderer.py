@@ -1,7 +1,10 @@
+import logging
 from typing import Optional, Any, Union
 from aiogram.types import Message, CallbackQuery, InputMediaPhoto
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.services.content import ContentService
+
+logger = logging.getLogger(__name__)
 
 async def render_screen(
     event: Union[Message, CallbackQuery],
@@ -61,16 +64,21 @@ async def render_screen(
         return
 
     if screen.image_url:
-        await message.answer_photo(
-            photo=screen.image_url,
-            caption=text,
-            reply_markup=keyboard,
-            parse_mode="HTML",
-        )
-    else:
-        await message.answer(
-            text=text,
-            reply_markup=keyboard,
-            parse_mode="HTML",
-            disable_web_page_preview=True,
-        )
+        try:
+            await message.answer_photo(
+                photo=screen.image_url,
+                caption=text,
+                reply_markup=keyboard,
+                parse_mode="HTML",
+            )
+            return
+        except Exception as e:
+            logger.error(f"Error sending photo {screen.image_url}: {e}")
+            # Fallback to text message if photo fails
+    
+    await message.answer(
+        text=text,
+        reply_markup=keyboard,
+        parse_mode="HTML",
+        disable_web_page_preview=True,
+    )
