@@ -55,6 +55,10 @@ async def init_screens(db: AsyncSession):
         "sub_management": {
             "text": "⚙️ <b>Управление подпиской</b>\n\nЗдесь вы можете управлять вашим VPN-доступом, обновить ключ или продлить текущий тариф.\n\nТариф: <b>{plan_label}</b>\nДо: <b>{end_date}</b>",
             "image_url": "https://transf-img.cc/img/lai/69ebdba4aa70a.jpg"
+        },
+        "my_subscriptions": {
+            "text": "📜 <b>Ваши подписки</b>\n\nВыберите подписку из списка ниже для управления:",
+            "image_url": "https://transf-img.cc/img/lai/69ebdba4aa70a.jpg"
         }
     }
 

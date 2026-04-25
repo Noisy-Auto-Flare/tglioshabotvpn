@@ -42,6 +42,7 @@ from bot.keyboards.keyboards import (
     get_deposit_methods,
     get_reset_key_confirm_keyboard,
     get_sub_management_keyboard,
+    get_my_subscriptions_keyboard,
 )
 from bot.services.renderer import render_screen, safe_edit
 
@@ -187,8 +188,6 @@ async def process_trial(callback: CallbackQuery, db: AsyncSession):
     await callback.answer("✅ Пробный период активирован на 3 дня!", show_alert=True)
     await _show_profile(callback, db, user)
 
-from aiogram.types import LabeledPrice, PreCheckoutQuery
-
 @router.callback_query(F.data == "profile_main")
 async def open_profile_main(callback: CallbackQuery, db: AsyncSession):
     user = await _get_user_by_tg(db, callback.from_user.id)
@@ -196,120 +195,126 @@ async def open_profile_main(callback: CallbackQuery, db: AsyncSession):
     await _show_profile(callback, db, user)
     await callback.answer()
 
-@router.callback_query(F.data == "sub_management")
-async def open_sub_management(callback: CallbackQuery, db: AsyncSession):
+@router.callback_query(F.data == "my_subscriptions")
+async def open_my_subscriptions(callback: CallbackQuery, db: AsyncSession):
     user = await _get_user_by_tg(db, callback.from_user.id)
     if not user: return
 
-    # Get active subscription
+    # Get all active subscriptions
     sub_stmt = select(Subscription).where(
         Subscription.user_id == user.id,
         Subscription.status == SubscriptionStatus.ACTIVE,
         Subscription.end_date > datetime.now()
-    ).order_by(Subscription.end_date.desc()).limit(1)
+    ).order_by(Subscription.end_date.asc())
+    
+    sub_result = await db.execute(sub_stmt)
+    subscriptions = sub_result.scalars().all()
+
+    await render_screen(
+        callback, db, "my_subscriptions",
+        keyboard=get_my_subscriptions_keyboard(list(subscriptions))
+    )
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("manage_sub_"))
+async def manage_subscription(callback: CallbackQuery, db: AsyncSession):
+    if not callback.data: return
+    sub_id = int(callback.data.split("_")[-1])
+    user = await _get_user_by_tg(db, callback.from_user.id)
+    if not user: return
+
+    sub_stmt = select(Subscription).where(Subscription.id == sub_id, Subscription.user_id == user.id)
     sub = (await db.execute(sub_stmt)).scalar_one_or_none()
 
     if not sub:
-        await callback.answer("❌ У вас нет активной подписки.", show_alert=True)
+        await callback.answer("❌ Подписка не найдена.", show_alert=True)
         return
 
-    plan_label = settings.PLANS.get(sub.plan, {}).get("label", f"{sub.plan} дней")
+    plan_label = settings.PLANS.get(sub.plan, {}).get("label", f"Подписка #{sub.id}")
     end_date_str = sub.end_date.strftime("%d.%m.%Y")
 
     await render_screen(
         callback, db, "sub_management",
-        keyboard=get_sub_management_keyboard(),
+        keyboard=get_sub_management_keyboard(sub.id),
         plan_label=plan_label,
         end_date=end_date_str
     )
     await callback.answer()
 
-@router.callback_query(F.data == "get_key")
+@router.callback_query(F.data.startswith("get_key_"))
 async def process_get_key(callback: CallbackQuery, db: AsyncSession):
+    if not callback.data: return
+    sub_id = int(callback.data.split("_")[-1])
     user = await _get_user_by_tg(db, callback.from_user.id)
     if not user: return
-    
-    # Just show profile which contains the key
-    await _show_profile(callback, db, user)
-    await callback.answer("🔑 Ваш ключ отображен в профиле")
 
-@router.callback_query(F.data == "reset_key_confirm")
+    # Get VPN key for this sub
+    vpn_stmt = select(VPNKey).where(
+        VPNKey.subscription_id == sub_id,
+        VPNKey.is_active == True
+    ).order_by(VPNKey.id.desc()).limit(1)
+    vpn_key = (await db.execute(vpn_stmt)).scalar_one_or_none()
+
+    if vpn_key and vpn_key.config and callback.message:
+        await callback.message.answer(f"🔑 Ваш ключ для выбранной подписки:\n\n<code>{vpn_key.config}</code>", parse_mode="HTML")
+        await callback.answer()
+    else:
+        await callback.answer("❌ Ключ еще не создан или неактивен.", show_alert=True)
+
+@router.callback_query(F.data.startswith("reset_key_confirm_"))
 async def confirm_reset_key(callback: CallbackQuery, db: AsyncSession):
+    if not callback.data: return
+    sub_id = int(callback.data.split("_")[-1])
     user = await _get_user_by_tg(db, callback.from_user.id)
     if not user: return
 
-    # Get active subscription
-    sub_stmt = select(Subscription).where(
-        Subscription.user_id == user.id,
-        Subscription.status == SubscriptionStatus.ACTIVE,
-        Subscription.end_date > datetime.now()
-    ).order_by(Subscription.end_date.desc()).limit(1)
+    sub_stmt = select(Subscription).where(Subscription.id == sub_id, Subscription.user_id == user.id)
     sub = (await db.execute(sub_stmt)).scalar_one_or_none()
 
     if not sub:
-        await callback.answer("❌ У вас нет активной подписки для сброса ключа.", show_alert=True)
+        await callback.answer("❌ Подписка не найдена.", show_alert=True)
         return
 
     remaining = 3 - sub.reset_count
     if remaining <= 0:
-        await callback.answer("❌ Вы исчерпали лимит сбросов ключа (макс. 3) для этой подписки.", show_alert=True)
+        await callback.answer("❌ Лимит сбросов исчерпан.", show_alert=True)
         return
 
     await render_screen(
         callback, db, "reset_key_confirm",
-        keyboard=get_reset_key_confirm_keyboard(),
+        keyboard=get_reset_key_confirm_keyboard(sub.id),
         remaining_resets=remaining
     )
     await callback.answer()
 
-@router.callback_query(F.data == "reset_key_execute")
+@router.callback_query(F.data.startswith("reset_key_execute_"))
 async def execute_reset_key(callback: CallbackQuery, db: AsyncSession):
+    if not callback.data: return
+    sub_id = int(callback.data.split("_")[-1])
     user = await _get_user_by_tg(db, callback.from_user.id)
     if not user: return
 
-    # 1. Get active sub and key
-    sub_stmt = select(Subscription).where(
-        Subscription.user_id == user.id,
-        Subscription.status == SubscriptionStatus.ACTIVE,
-        Subscription.end_date > datetime.now()
-    ).order_by(Subscription.end_date.desc()).limit(1)
+    # 1. Get sub and key
+    sub_stmt = select(Subscription).where(Subscription.id == sub_id, Subscription.user_id == user.id)
     sub = (await db.execute(sub_stmt)).scalar_one_or_none()
 
     if not sub or sub.reset_count >= 3:
         await callback.answer("❌ Сброс невозможен.", show_alert=True)
         return
 
-    # Get current active key
     vpn_stmt = select(VPNKey).where(
-        VPNKey.user_id == user.id,
         VPNKey.subscription_id == sub.id,
         VPNKey.is_active == True
     ).order_by(VPNKey.id.desc()).limit(1)
     old_key = (await db.execute(vpn_stmt)).scalar_one_or_none()
 
-    # 2. Delete old user from RemnaWave
-    if old_key:
-        if old_key.uuid:
-            logger.info(f"Deleting old RemnaWave user: {old_key.uuid}")
-            success = await asyncio.to_thread(vpn_service.delete_user, old_key.uuid)
-            if success:
-                logger.info(f"Successfully deleted RemnaWave user: {old_key.uuid}")
-                old_key.is_active = False
-                old_key.error_message = "Reset by user"
-                await db.commit()
-            else:
-                logger.error(f"Failed to delete old RemnaWave user {old_key.uuid}, but proceeding with creation")
-                # We still deactivate it in DB to not show it
-                old_key.is_active = False
-                await db.commit()
-        else:
-            logger.warning(f"Old key found (id={old_key.id}) but has no UUID to delete from RemnaWave")
-            old_key.is_active = False
-            await db.commit()
-    else:
-        logger.info(f"No active old key found to delete for user {user.id}")
+    # 2. Delete old user
+    if old_key and old_key.uuid:
+        await asyncio.to_thread(vpn_service.delete_user, old_key.uuid)
+        old_key.is_active = False
+        await db.commit()
 
-    # 3. Create new user in RemnaWave
+    # 3. Create new
     days_left = max(1, (sub.end_date - datetime.now()).days)
     vpn_data = await asyncio.to_thread(
         vpn_service.create_user_and_get_link,
@@ -331,10 +336,16 @@ async def execute_reset_key(callback: CallbackQuery, db: AsyncSession):
         sub.reset_count += 1
         await db.commit()
         await callback.answer("✅ Ключ успешно сброшен!", show_alert=True)
+        # Return to management
+        await manage_subscription(callback, db)
     else:
-        await callback.answer("❌ Ошибка при создании нового ключа. Обратитесь в поддержку.", show_alert=True)
+        await callback.answer("❌ Ошибка при создании ключа.", show_alert=True)
 
-    await _show_profile(callback, db, user)
+@router.callback_query(F.data.startswith("extend_sub_"))
+async def extend_subscription(callback: CallbackQuery, db: AsyncSession):
+    # For now just redirect to tariff list as requested "Добавить подписку -> Переброс в меню выбора тарифов"
+    # But specifically for extension we might want to handle it differently later
+    await open_tariff_list(callback, db)
 
 @router.callback_query(F.data == "statistics")
 async def open_statistics(callback: CallbackQuery, db: AsyncSession):

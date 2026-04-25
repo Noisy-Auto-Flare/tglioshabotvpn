@@ -52,25 +52,34 @@ def get_deposit_methods() -> InlineKeyboardMarkup:
 def get_profile_main_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📊 Статистика", callback_data="statistics")],
-        [InlineKeyboardButton(text="⚙️ Управление подпиской", callback_data="sub_management")],
-        [InlineKeyboardButton(text="� Пополнить баланс", callback_data="deposit_menu")],
         [InlineKeyboardButton(text="📜 Мои подписки", callback_data="my_subscriptions")],
+        [InlineKeyboardButton(text="� Пополнить баланс", callback_data="deposit_menu")],
         [InlineKeyboardButton(text="⬅️ Назад", callback_data="main_menu")],
     ])
 
-def get_sub_management_keyboard() -> InlineKeyboardMarkup:
+def get_my_subscriptions_keyboard(subscriptions: list) -> InlineKeyboardMarkup:
+    keyboard = []
+    for sub in subscriptions:
+        plan_label = settings.PLANS.get(sub.plan, {}).get("label", f"Подписка #{sub.id}")
+        keyboard.append([InlineKeyboardButton(text=f"📦 {plan_label}", callback_data=f"manage_sub_{sub.id}")])
+    
+    keyboard.append([InlineKeyboardButton(text="➕ Добавить подписку", callback_data="tariff_list")])
+    keyboard.append([InlineKeyboardButton(text="⬅️ Назад в профиль", callback_data="profile_main")])
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+def get_sub_management_keyboard(sub_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔑 Получить ключ", callback_data="get_key")],
-        [InlineKeyboardButton(text="🔄 Обновить ключ", callback_data="reset_key_confirm")],
-        [InlineKeyboardButton(text="➕ Продлить подписку", callback_data="tariff_list")],
+        [InlineKeyboardButton(text="🔑 Получить ключ", callback_data=f"get_key_{sub_id}")],
+        [InlineKeyboardButton(text="🔄 Обновить ключ", callback_data=f"reset_key_confirm_{sub_id}")],
+        [InlineKeyboardButton(text="➕ Продлить подписку", callback_data=f"extend_sub_{sub_id}")],
         [InlineKeyboardButton(text="📖 Инструкции", callback_data="setup_guides")],
-        [InlineKeyboardButton(text="⬅️ Назад в профиль", callback_data="profile_main")],
+        [InlineKeyboardButton(text="⬅️ К списку подписок", callback_data="my_subscriptions")],
     ])
 
-def get_reset_key_confirm_keyboard() -> InlineKeyboardMarkup:
+def get_reset_key_confirm_keyboard(sub_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="✅ Подтвердить", callback_data="reset_key_execute", style="danger")],
-        [InlineKeyboardButton(text="⬅️ Назад", callback_data="sub_management")],
+        [InlineKeyboardButton(text="✅ Подтвердить", callback_data=f"reset_key_execute_{sub_id}", style="danger")],
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data=f"manage_sub_{sub_id}")],
     ])
 
 def get_info_menu_keyboard() -> InlineKeyboardMarkup:
