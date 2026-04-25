@@ -253,13 +253,30 @@ class RemnaWaveService:
             logger.exception("create_user_and_get_link failed for telegram_id=%s: %s", telegram_id, e)
             return None
 
-    def delete_user(self, user_uuid: str) -> bool:
-        """Deletes user from RemnaWave via DELETE /api/users/{uuid}."""
+    def delete_user(self, identifier: str) -> bool:
+        """
+        Deletes user from RemnaWave.
+        Tries deleting by UUID directly, and if fails, tries to resolve shortUuid to UUID first.
+        """
+        if not identifier:
+            logger.error("delete_user called with empty identifier")
+            return False
+
         panel_base = self.api_url
         if panel_base.endswith("/api"):
             panel_base = panel_base[:-4]
 
         headers = self._build_panel_headers(panel_base)
+        
+        # 1. Try resolving long UUID if it's a short one
+        user_uuid = identifier
+        if len(identifier) < 32: # Short UUIDs are usually shorter
+            resolved_uuid = self.get_uuid_by_short_uuid(identifier)
+            if resolved_uuid:
+                user_uuid = resolved_uuid
+                logger.info("Resolved shortUuid %s to UUID %s", identifier, user_uuid)
+
+        # 2. Delete using long UUID
         try:
             response = curl_requests.delete(
                 f"{panel_base}/api/users/{user_uuid}",
@@ -272,11 +289,55 @@ class RemnaWaveService:
             if response.status_code in (200, 204):
                 logger.info("Successfully deleted user_uuid=%s from RemnaWave", user_uuid)
                 return True
+            
+            # If failed and we didn't try resolving yet, try resolving now
+            if user_uuid == identifier:
+                resolved_uuid = self.get_uuid_by_short_uuid(identifier)
+                if resolved_uuid and resolved_uuid != identifier:
+                    logger.info("Retrying deletion with resolved UUID %s", resolved_uuid)
+                    response = curl_requests.delete(
+                        f"{panel_base}/api/users/{resolved_uuid}",
+                        headers=headers,
+                        impersonate="chrome120",
+                        http_version=CurlHttpVersion.V1_1,
+                        timeout=30,
+                        verify=False
+                    )
+                    if response.status_code in (200, 204):
+                        logger.info("Successfully deleted user_uuid=%s from RemnaWave after resolution", resolved_uuid)
+                        return True
+
             logger.error("RemnaWave delete user failed: status=%s body=%s", response.status_code, response.text)
             return False
         except Exception as e:
-            logger.exception("Failed to delete user %s from RemnaWave: %s", user_uuid, e)
+            logger.exception("Failed to delete user %s from RemnaWave: %s", identifier, e)
             return False
+
+    def get_uuid_by_short_uuid(self, short_uuid: str) -> Optional[str]:
+        """Resolves shortUuid to long UUID via GET /api/users/by-short-uuid/{shortUuid}."""
+        panel_base = self.api_url
+        if panel_base.endswith("/api"):
+            panel_base = panel_base[:-4]
+
+        headers = self._build_panel_headers(panel_base)
+        try:
+            response = curl_requests.get(
+                f"{panel_base}/api/users/by-short-uuid/{short_uuid}",
+                headers=headers,
+                impersonate="chrome120",
+                http_version=CurlHttpVersion.V1_1,
+                timeout=30,
+                verify=False
+            )
+            if response.status_code == 200:
+                data = response.json()
+                inner = data.get("response", data) if isinstance(data, dict) else {}
+                return inner.get("uuid")
+            logger.warning("Failed to resolve shortUuid %s: status=%s", short_uuid, response.status_code)
+            return None
+        except Exception as e:
+            logger.exception("Error resolving shortUuid %s: %s", short_uuid, e)
+            return None
 
     def add_user_to_squad(self, user_uuid: str, squad_uuid: str) -> bool:
         """Adds user to Internal Squad via PATCH /api/users."""
