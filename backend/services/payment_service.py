@@ -50,8 +50,9 @@ class PaymentService:
         user_result = await self.db.execute(user_stmt)
         user = user_result.scalar_one()
 
-        plan_days = int(payment.payload)
-        plan_config = settings.PLANS.get(payment.payload, {"gb": 30})
+        plan_id = payment.payload or "30" # Fallback to 30 days
+        plan_days = int(plan_id)
+        plan_config = settings.PLANS.get(plan_id, {"gb": 30})
         traffic_gb = plan_config.get("gb", 30)
 
         now = datetime.now()
@@ -71,20 +72,31 @@ class PaymentService:
         # Create VPN Key
         try:
             import asyncio
-            subscription_link = await asyncio.to_thread(
+            vpn_data = await asyncio.to_thread(
                 vpn_service.create_user_and_get_link,
                 user.telegram_id,
                 traffic_gb,
                 plan_days
             )
             
-            vpn_key = VPNKey(
-                user_id=user.id,
-                subscription_id=subscription.id,
-                config=subscription_link or "Creation in progress...",
-                expire_at=end_date,
-                is_active=bool(subscription_link)
-            )
+            if vpn_data:
+                vpn_key = VPNKey(
+                    user_id=user.id,
+                    subscription_id=subscription.id,
+                    uuid=vpn_data["uuid"],
+                    config=vpn_data["link"],
+                    expire_at=end_date,
+                    is_active=True
+                )
+            else:
+                vpn_key = VPNKey(
+                    user_id=user.id,
+                    subscription_id=subscription.id,
+                    config="Creation failed",
+                    expire_at=end_date,
+                    is_active=False,
+                    error_message="RemnaWave API error"
+                )
             self.db.add(vpn_key)
         except Exception as e:
             logger.error(f"Failed to create VPN key for user {user.telegram_id}: {e}")

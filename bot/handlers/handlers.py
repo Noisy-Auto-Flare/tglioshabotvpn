@@ -163,8 +163,25 @@ async def process_trial(callback: CallbackQuery, db: AsyncSession):
     db.add(sub)
     await db.flush()
 
-    link = await asyncio.to_thread(vpn_service.create_user_and_get_link, user.telegram_id, 10, 3)
-    db.add(VPNKey(user_id=user.id, subscription_id=sub.id, config=link or "Error", expire_at=end_date, is_active=bool(link)))
+    vpn_data = await asyncio.to_thread(vpn_service.create_user_and_get_link, user.telegram_id, 10, 3)
+    if vpn_data:
+        db.add(VPNKey(
+            user_id=user.id, 
+            subscription_id=sub.id, 
+            uuid=vpn_data["uuid"],
+            config=vpn_data["link"], 
+            expire_at=end_date, 
+            is_active=True
+        ))
+    else:
+        db.add(VPNKey(
+            user_id=user.id, 
+            subscription_id=sub.id, 
+            config="Error", 
+            expire_at=end_date, 
+            is_active=False,
+            error_message="RemnaWave API error"
+        ))
     await db.commit()
     
     await callback.answer("✅ Пробный период активирован на 3 дня!", show_alert=True)
@@ -294,20 +311,19 @@ async def execute_reset_key(callback: CallbackQuery, db: AsyncSession):
 
     # 3. Create new user in RemnaWave
     days_left = max(1, (sub.end_date - datetime.now()).days)
-    new_link = await asyncio.to_thread(
+    vpn_data = await asyncio.to_thread(
         vpn_service.create_user_and_get_link,
         user.telegram_id,
         sub.traffic_limit_gb or 30,
         days_left
     )
 
-    if new_link:
-        new_uuid = new_link.rstrip("/").split("/")[-1]
+    if vpn_data:
         new_key = VPNKey(
             user_id=user.id,
             subscription_id=sub.id,
-            uuid=new_uuid,
-            config=new_link,
+            uuid=vpn_data["uuid"],
+            config=vpn_data["link"],
             expire_at=sub.end_date,
             is_active=True
         )

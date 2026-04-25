@@ -187,8 +187,8 @@ class RemnaWaveService:
                 
         return {"success": False, "error": "All creation endpoints failed"}
 
-    def create_user_and_get_link(self, telegram_id: int, data_limit_gb: int = 30, days: int = 30) -> Optional[str]:
-        """Creates a RemnaWave user via curl_cffi and returns subscription URL."""
+    def create_user_and_get_link(self, telegram_id: int, data_limit_gb: int = 30, days: int = 30) -> Optional[Dict[str, str]]:
+        """Creates a RemnaWave user via curl_cffi and returns subscription URL and UUID."""
         panel_base = self.api_url
         if panel_base.endswith("/api"):
             panel_base = panel_base[:-4]
@@ -244,11 +244,19 @@ class RemnaWaveService:
             else:
                 logger.warning("Could not verify squads: uuid missing in create response: %s", data)
 
-            if inner.get("subscriptionUrl"):
-                return inner["subscriptionUrl"]
-            if settings.SUB_DOMAIN:
-                return f"{settings.SUB_DOMAIN.rstrip('/')}/{short_uuid}"
-            return None
+            subscription_url = inner.get("subscriptionUrl")
+            if not subscription_url:
+                if settings.SUB_DOMAIN:
+                    subscription_url = f"{settings.SUB_DOMAIN.rstrip('/')}/{short_uuid}"
+                else:
+                    # Fallback to panel URL if no sub domain
+                    subscription_url = f"{panel_base}/sub/{short_uuid}"
+
+            return {
+                "link": subscription_url,
+                "uuid": user_uuid or short_uuid,
+                "shortUuid": short_uuid
+            }
         except Exception as e:
             logger.exception("create_user_and_get_link failed for telegram_id=%s: %s", telegram_id, e)
             return None

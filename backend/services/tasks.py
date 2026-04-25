@@ -136,7 +136,7 @@ async def process_successful_payment(
         logger.error(f"Error cleaning up old keys for user {user_id}: {e}")
 
     started_at = perf_counter()
-    subscription_link = await asyncio.to_thread(
+    vpn_data = await asyncio.to_thread(
         vpn_service.create_user_and_get_link,
         user.telegram_id,
         effective_traffic_gb,
@@ -147,7 +147,7 @@ async def process_successful_payment(
         "RemnaWave create_user_and_get_link finished for user=%s in %sms success=%s",
         user.telegram_id,
         duration_ms,
-        bool(subscription_link)
+        bool(vpn_data)
     )
     
     config = None
@@ -155,10 +155,10 @@ async def process_successful_payment(
     uuid = None
     error_message = None
 
-    if subscription_link:
-        config = subscription_link
+    if vpn_data:
+        config = vpn_data["link"]
+        uuid = vpn_data["uuid"]
         is_active = True
-        uuid = subscription_link.rstrip("/").split("/")[-1]
     else:
         error_message = "RemnaWave link creation failed"
         logger.error("VPN provisioning failed for user %s: %s", user_id, error_message)
@@ -189,8 +189,8 @@ async def process_successful_payment(
     await session.commit()
     logger.info(f"Successfully processed payment {external_id} for user {user_id}. VPN Active: {is_active}")
 
-    if subscription_link:
-        await _send_subscription_message(user.telegram_id, subscription_link, plan_days, effective_traffic_gb)
+    if is_active:
+        await _send_subscription_message(user.telegram_id, config, plan_days, effective_traffic_gb)
     else:
         try:
             async with Bot(token=settings.BOT_TOKEN) as bot:
@@ -333,7 +333,7 @@ async def vpn_retry_task():
 
                         remaining_days = max(1, (sub.end_date - now).days)
                         traffic_gb = sub.traffic_limit_gb or 30
-                        link = await asyncio.to_thread(
+                        vpn_data = await asyncio.to_thread(
                             vpn_service.create_user_and_get_link,
                             user.telegram_id,
                             traffic_gb,
@@ -345,10 +345,10 @@ async def vpn_retry_task():
                         uuid = None
                         error_message = "Initial background provision"
 
-                        if link:
-                            config = link
+                        if vpn_data:
+                            config = vpn_data["link"]
+                            uuid = vpn_data["uuid"]
                             is_active = True
-                            uuid = link.rstrip("/").split("/")[-1]
                             error_message = None
 
                         new_vpn = VPNKey(
