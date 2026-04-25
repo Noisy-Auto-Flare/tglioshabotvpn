@@ -3,52 +3,93 @@ from backend.core.config import settings
 
 def get_main_menu() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🚀 Подключиться", callback_data="connect")],
-        [InlineKeyboardButton(text="👤 Профиль", callback_data="profile")],
+        [InlineKeyboardButton(text="🚀 Подключиться", callback_data="buy_menu")],
+        [InlineKeyboardButton(text="👤 Мой профиль", callback_data="profile_main")],
         [
-            InlineKeyboardButton(text="👥 Рефералы", callback_data="ref"),
-            InlineKeyboardButton(text="ℹ️ Информация", callback_data="info"),
+            InlineKeyboardButton(text="👥 Реф. система", callback_data="referral_system"),
+            InlineKeyboardButton(text="ℹ️ Информация", callback_data="info_menu"),
         ],
-        [InlineKeyboardButton(text="🆘 Поддержка", url="https://t.me/stingersup")],
+        [InlineKeyboardButton(text="🆘 Поддержка", url="https://t.me/StingerSup")],
     ])
 
-def get_subscription_plans() -> InlineKeyboardMarkup:
-    keyboard = [[InlineKeyboardButton(text="Пробный (3 дня) - 0$", callback_data="plan_trial")]]
-    
-    for plan_id, plan in settings.PLANS.items():
-        keyboard.append([InlineKeyboardButton(text=plan["label"], callback_data=f"plan_{plan_id}")])
-        
-    keyboard.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="menu")])
-    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+def get_buy_menu() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🎁 Пробный период (3 дня)", callback_data="trial_activate")],
+        [InlineKeyboardButton(text="📅 Выбрать тариф", callback_data="tariff_list")],
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data="main_menu")],
+    ])
 
-def get_payment_methods(plan_id: str, ton_url: str) -> InlineKeyboardMarkup:
-    keyboard = [
-        [InlineKeyboardButton(text="💳 CryptoBot", callback_data=f"pay_crypto_{plan_id}")],
-        [InlineKeyboardButton(text="⭐ Telegram Stars", callback_data=f"pay_stars_{plan_id}")],
-        [InlineKeyboardButton(text="💎 Оплатить TON", url=ton_url)],
-        [InlineKeyboardButton(text="✅ Я оплатил TON", callback_data=f"check_ton_{plan_id}")],
-        [InlineKeyboardButton(text="⬅️ Назад", callback_data="connect")]
-    ]
-    return InlineKeyboardMarkup(inline_keyboard=keyboard)
-
-def get_payment_keyboard(invoice_url: str, plan_id: str) -> InlineKeyboardMarkup:
-    keyboard = [
-        [InlineKeyboardButton(text="Оплатить через CryptoBot", url=invoice_url)],
-        [InlineKeyboardButton(text="Проверить оплату", callback_data="check_payment")],
-        [InlineKeyboardButton(text="⬅️ Назад", callback_data=f"plan_{plan_id}")],
-        [InlineKeyboardButton(text="🏠 В меню", callback_data="menu")],
-    ]
-    return InlineKeyboardMarkup(inline_keyboard=keyboard)
-
-def get_profile_keyboard(has_sub: bool, has_key: bool) -> InlineKeyboardMarkup:
+def get_tariff_list() -> InlineKeyboardMarkup:
     keyboard = []
-    if has_sub and not has_key:
-        keyboard.append([InlineKeyboardButton(text="🎁 Получить ключ", callback_data="get_vpn_key")])
-    elif has_sub and has_key:
-        keyboard.append([InlineKeyboardButton(text="🔄 Обновить ключ", callback_data="get_vpn_key")])
-    
-    if not has_sub:
-        keyboard.append([InlineKeyboardButton(text="💳 Купить подписку", callback_data="connect")])
-    keyboard.append([InlineKeyboardButton(text="🏠 В меню", callback_data="menu")])
-    
+    for plan_id, plan in settings.PLANS.items():
+        keyboard.append([InlineKeyboardButton(text=plan["label"], callback_data=f"pay_order_{plan_id}")])
+    keyboard.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="buy_menu")])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+def get_payment_methods(plan_id: str) -> InlineKeyboardMarkup:
+    keyboard = [
+        [InlineKeyboardButton(text="💳 Оплатить с баланса", callback_data=f"pay_balance_{plan_id}")],
+        [InlineKeyboardButton(text="🇷🇺 СБП (рубли)", callback_data=f"pay_sbp_{plan_id}")],
+        [InlineKeyboardButton(text="🤖 CryptoBot", callback_data=f"pay_cryptobot_{plan_id}")],
+        [InlineKeyboardButton(text="💳 CryptoMus", callback_data=f"pay_cryptomus_{plan_id}")],
+        [InlineKeyboardButton(text="⭐️ Telegram Stars", callback_data=f"pay_stars_{plan_id}")],
+        [InlineKeyboardButton(text="💎 TON Connect", callback_data=f"pay_ton_{plan_id}")],
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data="tariff_list")]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+def get_deposit_methods() -> InlineKeyboardMarkup:
+    keyboard = [
+        [InlineKeyboardButton(text="🇷🇺 СБП (рубли)", callback_data="dep_sbp")],
+        [InlineKeyboardButton(text="🤖 CryptoBot", callback_data="dep_cryptobot")],
+        [InlineKeyboardButton(text="💳 CryptoMus", callback_data="dep_cryptomus")],
+        [InlineKeyboardButton(text="⭐️ Telegram Stars", callback_data="dep_stars")],
+        [InlineKeyboardButton(text="💎 TON Connect", callback_data="dep_ton")],
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data="profile_main")]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+def get_profile_main_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📊 Статистика", callback_data="statistics")],
+        [InlineKeyboardButton(text="💰 Пополнить баланс", callback_data="deposit_menu")],
+        [InlineKeyboardButton(text="📜 Мои подписки", callback_data="my_subscriptions")],
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data="main_menu")],
+    ])
+
+def get_info_menu_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📖 Инструкции по настройке", callback_data="setup_guides")],
+        [InlineKeyboardButton(text="📜 Условия пользования", url="https://telegra.ph/link_to_rules")],
+        [InlineKeyboardButton(text="⚖️ Публичная оферта", url="https://telegra.ph/link_to_offer")],
+        [InlineKeyboardButton(text="🛡 Безопасность", url="https://telegra.ph/link_to_security")],
+        [InlineKeyboardButton(text="🌐 Проверка IP", url="https://whoer.net")],
+        [InlineKeyboardButton(text="🚀 Скорость интернета", url="https://speedtest.net")],
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data="main_menu")],
+    ])
+
+def get_setup_guides_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="📱 iOS", url="https://telegra.ph/ios-setup"),
+            InlineKeyboardButton(text="🤖 Android", url="https://telegra.ph/android-setup"),
+        ],
+        [
+            InlineKeyboardButton(text="💻 Windows", url="https://telegra.ph/windows-setup"),
+            InlineKeyboardButton(text="🍎 macOS", url="https://telegra.ph/macos-setup"),
+        ],
+        [
+            InlineKeyboardButton(text="🐧 Linux", url="https://telegra.ph/linux-setup"),
+            InlineKeyboardButton(text="📺 Android TV", url="https://telegra.ph/android-tv-setup"),
+        ],
+        [
+            InlineKeyboardButton(text="🌐 Роутеры", url="https://telegra.ph/router-setup"),
+            InlineKeyboardButton(text="🍎 Apple TV", url="https://telegra.ph/apple-tv-setup"),
+        ],
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data="info_menu")],
+    ])
+
+def get_back_to_main() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⬅️ Вернуться в меню", callback_data="main_menu")]
+    ])

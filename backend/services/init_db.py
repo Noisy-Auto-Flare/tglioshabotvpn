@@ -9,35 +9,43 @@ async def init_screens(db: AsyncSession):
     
     default_screens = {
         "main_menu": {
-            "text": "👋 Добро пожаловать в VPN бот!\n\nМы предоставляем быстрый и надежный VPN.\nВыберите действие в меню ниже:",
+            "text": "👋 <b>Добро пожаловать в VPN бот!</b>\n\nМы предоставляем быстрый и надежный VPN.\nВыберите действие в меню ниже:",
             "image_url": "https://img.freepik.com/free-vector/vpn-connectivity-concept-illustration_114360-6483.jpg"
         },
-        "plans": {
-            "text": "Выберите подходящий тарифный план:",
+        "buy_menu": {
+            "text": "🚀 <b>Подключение</b>\n\nВыберите тип доступа:",
             "image_url": "https://img.freepik.com/free-vector/vpn-connectivity-concept-illustration_114360-6483.jpg"
         },
-        "connect_menu": {
-            "text": "🚀 <b>Подключение</b>\n\nВыберите тарифный план:",
+        "tariff_list": {
+            "text": "� <b>Выберите тарифный план</b>\n\nМы подготовили лучшие условия для вас:",
             "image_url": "https://img.freepik.com/free-vector/vpn-connectivity-concept-illustration_114360-6483.jpg"
         },
         "payment": {
-            "text": "💳 <b>Выберите способ оплаты</b>\n\nТариф: <b>{plan_label}</b>",
+            "text": "💳 <b>Оплата покупки</b>\n\nТариф: <b>{plan_label}</b>\nСумма: <b>{price}р</b>\n\nВыберите удобный способ оплаты:",
             "image_url": "https://img.freepik.com/free-vector/vpn-connectivity-concept-illustration_114360-6483.jpg"
         },
-        "profile": {
-            "text": "👤 Профиль\n\n🆔 Ваш ID: <code>{telegram_id}</code>\n💰 Баланс: {balance}$\n📝 Статус: {status_text}\n{vpn_info}",
+        "profile_main": {
+            "text": "👤 <b>Мой профиль</b>\n\n🆔 Ваш ID: <code>{telegram_id}</code>\n💰 Баланс: <b>{balance}р</b>\n📝 Статус: <b>{status_text}</b>\n\n{vpn_info}",
             "image_url": "https://img.freepik.com/free-vector/vpn-connectivity-concept-illustration_114360-6483.jpg"
         },
-        "info": {
-            "text": "ℹ️ <b>Информация</b>\n\n📍 <b>Как подключиться:</b>\n1. Скачайте приложение <b>v2raytun</b> для Android или iOS.\n2. Купите подписку в разделе «Подключиться».\n3. Перейдите в «Мой профиль» и скопируйте VPN-ключ (начинается с vless://).\n4. В приложении v2raytun нажмите «+» или «Импорт» и вставьте ключ.\n5. Нажмите на кнопку подключения.\n\n🔗 <b>Полезные ссылки:</b>\n- Проверка IP: <a href='https://whoer.net'>whoer.net</a>\n- Speedtest: <a href='https://speedtest.net'>speedtest.net</a>\n\n⚠️ Если ключ не отображается в профиле, нажмите кнопку «Получить ключ».",
+        "statistics": {
+            "text": "📊 <b>Статистика</b>\n\n- ID: <code>{user_id}</code>\n- Статус: <b>{status}</b>\n- Остаток дней: <b>{days_left}</b>\n- Кол-во покупок: <b>{total_orders}</b>\n- Текущий протокол: <b>{protocol_type}</b>\n- Лимит трафика: <b>{used_gb}/{total_gb} GB</b>",
             "image_url": "https://img.freepik.com/free-vector/vpn-connectivity-concept-illustration_114360-6483.jpg"
         },
-        "support": {
-            "text": "По всем вопросам пишите @admin",
-            "image_url": "https://img.freepik.com/free-vector/customer-support-flat-design-concept_23-2148291411.jpg"
+        "deposit_menu": {
+            "text": "💰 <b>Пополнение баланса</b>\n\nВыберите способ оплаты для пополнения внутреннего кошелька:",
+            "image_url": "https://img.freepik.com/free-vector/vpn-connectivity-concept-illustration_114360-6483.jpg"
         },
-        "referral": {
-            "text": "👥 Реферальная система\n\nПриглашайте друзей и получайте бонусы на баланс!\n\nКоличество приглашенных: {count}\nВаша ссылка: {ref_link}",
+        "info_menu": {
+            "text": "ℹ️ <b>Информация</b>\n\nЗдесь вы найдете все необходимые инструкции и полезные ссылки для работы с нашим сервисом.",
+            "image_url": "https://img.freepik.com/free-vector/vpn-connectivity-concept-illustration_114360-6483.jpg"
+        },
+        "setup_guides": {
+            "text": "📖 <b>Инструкции по настройке</b>\n\nВыберите вашу платформу, чтобы получить подробное руководство:",
+            "image_url": "https://img.freepik.com/free-vector/vpn-connectivity-concept-illustration_114360-6483.jpg"
+        },
+        "referral_system": {
+            "text": "👥 <b>Реферальная система</b>\n\nПриглашайте друзей и получайте бонусы на баланс!\n\nКоличество приглашенных: <b>{count}</b>\nВаша ссылка: <code>{ref_link}</code>",
             "image_url": "https://img.freepik.com/free-vector/refer-friend-concept-illustration_114360-7039.jpg"
         }
     }
