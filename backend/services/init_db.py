@@ -10,55 +10,52 @@ async def init_screens(db: AsyncSession):
     default_screens = {
         "main_menu": {
             "text": "👋 <b>Добро пожаловать в VPN бот!</b>\n\nМы предоставляем быстрый и надежный VPN.\nВыберите действие в меню ниже:",
-            "image_url": "https://transf-img.cc/img/lai/69ebdba4aa70a.jpg"
+            "image_url": "https://i.ibb.co/j9PDJHrD/image.png"
         },
         "buy_menu": {
             "text": "🚀 <b>Подключение</b>\n\nВыберите тип доступа:",
-            "image_url": "https://transf-img.cc/img/lai/69ebdba4aa70a.jpg"
+            "image_url": "https://i.ibb.co/j9PDJHrD/image.png"
         },
         "tariff_list": {
-            "text": "� <b>Выберите тарифный план</b>\n\nМы подготовили лучшие условия для вас:",
-            "image_url": "https://transf-img.cc/img/lai/69ebdba4aa70a.jpg"
+            "text": "  <b>Выберите тарифный план</b>\n\nМы подготовили лучшие условия для вас:",
+            "image_url": "https://i.ibb.co/HDJfqBjp/image.png"
         },
         "payment": {
             "text": "💳 <b>Оплата покупки</b>\n\nТариф: <b>{plan_label}</b>\nСумма: <b>{price}р</b>\n\nВыберите удобный способ оплаты:",
-            "image_url": "https://transf-img.cc/img/lai/69ebdba4aa70a.jpg"
+            "image_url": "https://i.ibb.co/3yFztHqy/2.png"
         },
         "profile_main": {
             "text": "👤 <b>Мой профиль</b>\n\n🆔 Ваш ID: <code>{telegram_id}</code>\n💰 Баланс: <b>{balance}р</b>\n📝 Статус: <b>{status_text}</b>\n\n{vpn_info}",
-            "image_url": "https://transf-img.cc/img/lai/69ebdba4aa70a.jpg"
+            "image_url": "https://i.ibb.co/PvqTBwvW/image.png"
         },
         "statistics": {
             "text": "📊 <b>Статистика</b>\n\n- ID: <code>{user_id}</code>\n- Статус: <b>{status}</b>\n- Остаток дней: <b>{days_left}</b>\n- Кол-во покупок: <b>{total_orders}</b>\n- Текущий протокол: <b>{protocol_type}</b>\n- Лимит трафика: <b>{used_gb}/{total_gb} GB</b>",
-            "image_url": "https://transf-img.cc/img/lai/69ebdba4aa70a.jpg"
+            "image_url": "https://i.ibb.co/PGxF0KCz/6.png"
         },
         "deposit_menu": {
             "text": "💰 <b>Пополнение баланса</b>\n\nВыберите способ оплаты для пополнения внутреннего кошелька:",
-            "image_url": "https://transf-img.cc/img/lai/69ebdba4aa70a.jpg"
+            "image_url": "https://i.ibb.co/PvqTBwvW/image.png"
         },
         "info_menu": {
             "text": "ℹ️ <b>Информация</b>\n\nЗдесь вы найдете все необходимые инструкции и полезные ссылки для работы с нашим сервисом.",
-            "image_url": "https://transf-img.cc/img/lai/69ebdba4aa70a.jpg"
+            "image_url": "https://i.ibb.co/7dH56jZ7/3.png"
         },
         "setup_guides": {
             "text": "📖 <b>Инструкции по настройке</b>\n\nВыберите вашу платформу, чтобы получить подробное руководство:",
-            "image_url": "https://transf-img.cc/img/lai/69ebdba4aa70a.jpg"
+            "image_url": "https://i.ibb.co/Dgky69mM/5.png"
         },
         "referral_system": {
             "text": "👥 <b>Реферальная система</b>\n\nПриглашайте друзей и получайте бонусы на баланс!\n\nКоличество приглашенных: <b>{count}</b>\nВаша ссылка: <code>{ref_link}</code>",
-            "image_url": "https://transf-img.cc/img/lai/69ebdba4aa70a.jpg"
+            "image_url": "https://i.ibb.co/mk5W6Vt/4.png"
         },
         "reset_key_confirm": {
             "text": "⚠️ <b>Подтверждение сброса ключа</b>\n\nВы уверены что хотите удалить старый ключ и получить новый?\nДанная функция доступна всего лишь 3 раза.\n\nКоличество доступных сбросов для текущей подписки: <b>{remaining_resets}</b>",
-            "image_url": "https://transf-img.cc/img/lai/69ebdba4aa70a.jpg"
         },
         "sub_management": {
             "text": "⚙️ <b>Управление подпиской</b>\n\nЗдесь вы можете управлять вашим VPN-доступом, обновить ключ или продлить текущий тариф.\n\nТариф: <b>{plan_label}</b>\nДо: <b>{end_date}</b>",
-            "image_url": "https://transf-img.cc/img/lai/69ebdba4aa70a.jpg"
         },
         "my_subscriptions": {
             "text": "📜 <b>Ваши подписки</b>\n\nВыберите подписку из списка ниже для управления:",
-            "image_url": "https://transf-img.cc/img/lai/69ebdba4aa70a.jpg"
         }
     }
 

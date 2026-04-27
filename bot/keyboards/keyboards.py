@@ -3,118 +3,118 @@ from backend.core.config import settings
 
 def get_main_menu() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🚀 Подключиться", callback_data="buy_menu", style="danger")],
-        [InlineKeyboardButton(text="👤 Мой профиль", callback_data="profile_main")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5188481279963715781", text="Подключиться", callback_data="buy_menu", style="danger")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5920344347152224466", text="Мой профиль", callback_data="profile_main")],
         [
-            InlineKeyboardButton(text="👥 Реф. система", callback_data="referral_system"),
-            InlineKeyboardButton(text="ℹ️ Информация", callback_data="info_menu"),
+            InlineKeyboardButton(icon_custom_emoji_id="5944970130554359187", text="Реф. система", callback_data="referral_system"),
+            InlineKeyboardButton(icon_custom_emoji_id="5436113877181941026", text="Информация", callback_data="info_menu"),
         ],
-        [InlineKeyboardButton(text="🆘 Поддержка", url="https://t.me/StingerSup")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5931614414351372818", text="Поддержка", url="https://t.me/StingerSup")],
     ])
 
 def get_buy_menu() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🎁 Пробный период (3 дня)", callback_data="trial_activate")],
-        [InlineKeyboardButton(text="📅 Выбрать тариф", callback_data="tariff_list")],
-        [InlineKeyboardButton(text="⬅️ Назад", callback_data="main_menu")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5348444231641892650", text="Пробный период (3 дня)", callback_data="trial_activate")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5274055917766202507", text="Выбрать тариф", callback_data="tariff_list")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5258236805890710909", text="Назад", callback_data="main_menu")],
     ])
 
 def get_tariff_list() -> InlineKeyboardMarkup:
     keyboard = []
     for plan_id, plan in settings.PLANS.items():
         keyboard.append([InlineKeyboardButton(text=plan["label"], callback_data=f"pay_order_{plan_id}")])
-    keyboard.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="buy_menu")])
+    keyboard.append([InlineKeyboardButton(icon_custom_emoji_id="5258236805890710909", text="Назад", callback_data="buy_menu")])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 def get_payment_methods(plan_id: str) -> InlineKeyboardMarkup:
     keyboard = [
-        [InlineKeyboardButton(text="💳 Оплатить с баланса", callback_data=f"pay_balance_{plan_id}", style="danger")],
-        [InlineKeyboardButton(text="🇷🇺 СБП (рубли)", callback_data=f"pay_sbp_{plan_id}", style="danger")],
-        [InlineKeyboardButton(text="🤖 CryptoBot", callback_data=f"pay_cryptobot_{plan_id}")],
-        [InlineKeyboardButton(text="💳 CryptoMus", callback_data=f"pay_cryptomus_{plan_id}")],
-        [InlineKeyboardButton(text="⭐️ Telegram Stars", callback_data=f"pay_stars_{plan_id}")],
-        [InlineKeyboardButton(text="💎 TON Connect", callback_data=f"pay_ton_{plan_id}")],
-        [InlineKeyboardButton(text="⬅️ Назад", callback_data="tariff_list")]
+        [InlineKeyboardButton(icon_custom_emoji_id="5931368295545443065", text="Оплатить с баланса", callback_data=f"pay_balance_{plan_id}", style="danger")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5240368741211980660", text="СБП (рубли)", callback_data=f"pay_sbp_{plan_id}", style="danger")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5397597950501204351", text="CryptoBot", callback_data=f"pay_cryptobot_{plan_id}")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5345837435601305335", text="CryptoMus", callback_data=f"pay_cryptomus_{plan_id}")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5438496463044752972", text="Telegram Stars", callback_data=f"pay_stars_{plan_id}")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5377620962390857342", text="TON Connect", callback_data=f"pay_ton_{plan_id}")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5258236805890710909", text="Назад", callback_data="tariff_list")]
     ]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 def get_deposit_methods() -> InlineKeyboardMarkup:
     keyboard = [
-        [InlineKeyboardButton(text="🇷🇺 СБП (рубли)", callback_data="dep_sbp", style="danger")],
-        [InlineKeyboardButton(text="🤖 CryptoBot", callback_data="dep_cryptobot")],
-        [InlineKeyboardButton(text="💳 CryptoMus", callback_data="dep_cryptomus")],
-        [InlineKeyboardButton(text="⭐️ Telegram Stars", callback_data="dep_stars")],
-        [InlineKeyboardButton(text="💎 TON Connect", callback_data="dep_ton")],
-        [InlineKeyboardButton(text="⬅️ Назад", callback_data="profile_main")]
+        [InlineKeyboardButton(icon_custom_emoji_id="5240368741211980660", text="СБП (рубли)", callback_data="dep_sbp", style="danger")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5397597950501204351", text="CryptoBot", callback_data="dep_cryptobot")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5345837435601305335", text="CryptoMus", callback_data="dep_cryptomus")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5438496463044752972", text="Telegram Stars", callback_data="dep_stars")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5377620962390857342", text="TON Connect", callback_data="dep_ton")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5258236805890710909", text="Назад", callback_data="profile_main")]
     ]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 def get_profile_main_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📊 Статистика", callback_data="statistics")],
-        [InlineKeyboardButton(text="📜 Мои подписки", callback_data="my_subscriptions")],
-        [InlineKeyboardButton(text="� Пополнить баланс", callback_data="deposit_menu")],
-        [InlineKeyboardButton(text="⬅️ Назад", callback_data="main_menu")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5258391025281408576", text="Статистика", callback_data="statistics")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5271604874419647061", text="Мои подписки", callback_data="my_subscriptions")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5215420556089776398", text="Пополнить баланс", callback_data="deposit_menu")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5258236805890710909", text="Назад", callback_data="main_menu")],
     ])
 
 def get_my_subscriptions_keyboard(subscriptions: list) -> InlineKeyboardMarkup:
     keyboard = []
     for sub in subscriptions:
         plan_label = settings.PLANS.get(sub.plan, {}).get("label", f"Подписка #{sub.id}")
-        keyboard.append([InlineKeyboardButton(text=f"📦 {plan_label}", callback_data=f"manage_sub_{sub.id}")])
+        keyboard.append([InlineKeyboardButton(icon_custom_emoji_id="5348388869513447644", text=f"{plan_label}", callback_data=f"manage_sub_{sub.id}")])
     
-    keyboard.append([InlineKeyboardButton(text="➕ Добавить подписку", callback_data="tariff_list")])
-    keyboard.append([InlineKeyboardButton(text="⬅️ Назад в профиль", callback_data="profile_main")])
+    keyboard.append([InlineKeyboardButton(icon_custom_emoji_id="5427168083074628963", text="Добавить подписку", callback_data="tariff_list")])
+    keyboard.append([InlineKeyboardButton(icon_custom_emoji_id="5258236805890710909", text="Назад в профиль", callback_data="profile_main")])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 def get_sub_management_keyboard(sub_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔑 Получить ключ", callback_data=f"get_key_{sub_id}")],
-        [InlineKeyboardButton(text="🔄 Обновить ключ", callback_data=f"reset_key_confirm_{sub_id}")],
-        [InlineKeyboardButton(text="➕ Продлить подписку", callback_data=f"extend_sub_{sub_id}")],
-        [InlineKeyboardButton(text="📖 Инструкции", callback_data="setup_guides")],
-        [InlineKeyboardButton(text="⬅️ К списку подписок", callback_data="my_subscriptions")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5307843983102204243", text="Получить ключ", callback_data=f"get_key_{sub_id}")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5244758760429213978", text="Обновить ключ", callback_data=f"reset_key_confirm_{sub_id}")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5427168083074628963", text="Продлить подписку", callback_data=f"extend_sub_{sub_id}")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5222444124698853913", text="Инструкции", callback_data="setup_guides")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5258236805890710909", text="К списку подписок", callback_data="my_subscriptions")],
     ])
 
 def get_reset_key_confirm_keyboard(sub_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="✅ Подтвердить", callback_data=f"reset_key_execute_{sub_id}", style="danger")],
-        [InlineKeyboardButton(text="⬅️ Назад", callback_data=f"manage_sub_{sub_id}")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5346300789558101141", text="Подтвердить", callback_data=f"reset_key_execute_{sub_id}", style="danger")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5258236805890710909", text="Назад", callback_data=f"manage_sub_{sub_id}")],
     ])
 
 def get_info_menu_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📖 Инструкции по настройке", callback_data="setup_guides")],
-        [InlineKeyboardButton(text="📜 Условия пользования", url="https://telegra.ph/link_to_rules")],
-        [InlineKeyboardButton(text="⚖️ Публичная оферта", url="https://telegra.ph/link_to_offer")],
-        [InlineKeyboardButton(text="🛡 Безопасность", url="https://telegra.ph/link_to_security")],
-        [InlineKeyboardButton(text="🌐 Проверка IP", url="https://whoer.net")],
-        [InlineKeyboardButton(text="🚀 Скорость интернета", url="https://speedtest.net")],
-        [InlineKeyboardButton(text="⬅️ Назад", callback_data="main_menu")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5222444124698853913", text="Инструкции по настройке", callback_data="setup_guides")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5199750217586459631", text="Пользовательское соглашение", url="https://telegra.ph/Polzovatelskoe-soglashenie-04-01-19")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5400250414929041085", text="Политика конфиденциальности", url="https://telegra.ph/Politika-konfidencialnosti-04-01-26")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5197288647275071607", text="Безопасность", url="https://telegra.ph/link_to_security")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5447410659077661506", text="Проверка IP", url="https://whoer.net")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5188481279963715781", text="Скорость интернета", url="https://speedtest.net")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5258236805890710909", text="Назад", callback_data="main_menu")],
     ])
 
 def get_setup_guides_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="📱 iOS", url="https://telegra.ph/ios-setup"),
-            InlineKeyboardButton(text="🤖 Android", url="https://telegra.ph/android-setup"),
+            InlineKeyboardButton(icon_custom_emoji_id="6019267111950488810", text="iOS", url="https://telegra.ph/ios-setup"),
+            InlineKeyboardButton(icon_custom_emoji_id="5926844131614657892", text="Android", url="https://telegra.ph/android-setup"),
         ],
         [
-            InlineKeyboardButton(text="💻 Windows", url="https://telegra.ph/windows-setup"),
-            InlineKeyboardButton(text="🍎 macOS", url="https://telegra.ph/macos-setup"),
+            InlineKeyboardButton(icon_custom_emoji_id="5240325907503142286", text="Windows", url="https://telegra.ph/windows-setup"),
+            InlineKeyboardButton(icon_custom_emoji_id="5370605717428387029", text="macOS", url="https://telegra.ph/macos-setup"),
         ],
         [
-            InlineKeyboardButton(text="🐧 Linux", url="https://telegra.ph/linux-setup"),
-            InlineKeyboardButton(text="📺 Android TV", url="https://telegra.ph/android-tv-setup"),
+            InlineKeyboardButton(icon_custom_emoji_id="5361541227604878624", text="Linux", url="https://telegra.ph/linux-setup"),
+            InlineKeyboardButton(icon_custom_emoji_id="5256033723891077614", text="Android TV", url="https://telegra.ph/android-tv-setup"),
         ],
         [
-            InlineKeyboardButton(text="🌐 Роутеры", url="https://telegra.ph/router-setup"),
-            InlineKeyboardButton(text="🍎 Apple TV", url="https://telegra.ph/apple-tv-setup"),
+            InlineKeyboardButton(icon_custom_emoji_id="4967646650152519154", text="Роутеры", url="https://telegra.ph/router-setup"),
+            InlineKeyboardButton(icon_custom_emoji_id="4958909307987952352", text="Apple TV", url="https://telegra.ph/apple-tv-setup"),
         ],
-        [InlineKeyboardButton(text="⬅️ Назад", callback_data="info_menu")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5258236805890710909", text="Назад", callback_data="info_menu")],
     ])
 
 def get_back_to_main() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⬅️ Вернуться в меню", callback_data="main_menu")]
+        [InlineKeyboardButton(icon_custom_emoji_id="5258236805890710909", text="Вернуться в меню", callback_data="main_menu")]
     ])
