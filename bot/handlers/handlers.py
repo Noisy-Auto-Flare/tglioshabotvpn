@@ -200,7 +200,7 @@ async def cmd_start(message: Message, db: AsyncSession):
         db.add(user)
         await db.commit()
 
-    await render_screen(message, db, "main_menu", keyboard=get_main_menu())
+    await render_screen(message, db, "main_menu", keyboard=get_main_menu(), name=message.from_user.first_name)
 
 @router.callback_query(F.data == "check_sub_status")
 async def check_sub_status(callback: CallbackQuery, db: AsyncSession):
@@ -275,7 +275,7 @@ async def process_broadcast(callback: CallbackQuery, db: AsyncSession):
 
 @router.callback_query(F.data == "main_menu")
 async def open_main_menu(callback: CallbackQuery, db: AsyncSession):
-    await render_screen(callback, db, "main_menu", keyboard=get_main_menu())
+    await render_screen(callback, db, "main_menu", keyboard=get_main_menu(), name=callback.from_user.first_name)
     await callback.answer()
 
 @router.callback_query(F.data == "buy_menu")
