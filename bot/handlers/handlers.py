@@ -102,6 +102,7 @@ async def _show_profile(event: Union[Message, CallbackQuery], db: AsyncSession, 
         hours = remaining.seconds // 3600
         status_text = f'<tg-emoji emoji-id="5206607081334906820">✅</tg-emoji> Активна (осталось {days} дн. {hours} ч.)'
         
+        
         if vpn_key and vpn_key.is_active:
             vpn_info = f"{vpn_key.config}"
         elif vpn_key:

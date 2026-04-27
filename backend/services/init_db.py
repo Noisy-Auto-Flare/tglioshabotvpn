@@ -29,7 +29,7 @@ async def init_screens(db: AsyncSession):
             "image_url": "https://i.ibb.co/PvqTBwvW/image.png"
         },
         "statistics": {
-            "text": "<tg-emoji emoji-id=\"5449872877929127395\">📊</tg-emoji> <b>Статистика</b>\n\n<tg-emoji emoji-id=\"5346176879751612829\">🆔</tg-emoji> ID: <code>{user_id}</code>\n<tg-emoji emoji-id=\"5346176879751612829\">📝</tg-emoji> Статус подписки: {status}\n<tg-emoji emoji-id=\"5346176879751612829\">📅</tg-emoji> Остаток дней: <b>{days_left}</b>\n<tg-emoji emoji-id=\"5346176879751612829\">🛒</tg-emoji> Кол-во покупок: <b>{total_orders}</b>\n<tg-emoji emoji-id=\"5346176879751612829\">⚙️</tg-emoji> Текущий протокол: <b>{protocol_type}</b>\n<tg-emoji emoji-id=\"5346176879751612829\">📊</tg-emoji> Лимит трафика: <b>{used_gb} / {total_gb} GB</b>",
+            "text": "<tg-emoji emoji-id=\"5449872877929127395\">📊</tg-emoji> <b>Статистика</b>\n\n<tg-emoji emoji-id=\"5346176879751612829\">🆔</tg-emoji> ID: <code>{user_id}</code>\n<tg-emoji emoji-id=\"5346176879751612829\">📝</tg-emoji> Статус подписки: {status}\n<tg-emoji emoji-id=\"5346176879751612829\">📅</tg-emoji> Остаток дней: <b>{days_left}</b>\n<tg-emoji emoji-id=\"5346176879751612829\">🛒</tg-emoji> Кол-во покупок: <b>{total_orders}</b>\n<tg-emoji emoji-id=\"5346176879751612829\">⚙️</tg-emoji> Текущий протокол: <b>{protocol_type}</b>",
             "image_url": "https://i.ibb.co/PGxF0KCz/6.png"
         },
         "deposit_menu": {
@@ -37,7 +37,7 @@ async def init_screens(db: AsyncSession):
             "image_url": "https://i.ibb.co/PvqTBwvW/image.png"
         },
         "info_menu": {
-            "text": "ℹ️ <b>Информация</b>\n\nЗдесь вы найдете все необходимые инструкции и полезные ссылки для работы с нашим сервисом.",
+            "text": "<tg-emoji emoji-id=\"5436113877181941026\">ℹ️</tg-emoji> <b>Информация</b>\n\nЗдесь вы найдете все необходимые инструкции и полезные ссылки для работы с нашим сервисом.",
             "image_url": "https://i.ibb.co/7dH56jZ7/3.png"
         },
         "setup_guides": {
@@ -45,7 +45,7 @@ async def init_screens(db: AsyncSession):
             "image_url": "https://i.ibb.co/Dgky69mM/5.png"
         },
         "referral_system": {
-            "text": "👥 <b>Реферальная система</b>\n\nПриглашайте друзей и получайте <b>+2 дня</b> к вашей подписке за каждого приглашенного!\n\nКоличество приглашенных: <b>{count}</b>\nВаша ссылка: <code>{ref_link}</code>",
+            "text": "<tg-emoji emoji-id=\"5438520338780533036\">👥</tg-emoji> <b>Реферальная система</b>\n\nПриглашайте друзей и получайте <tg-emoji emoji-id=\"5451631566834907951\">🎁</tg-emoji> <b>+2 дня</b> к вашей подписке за каждого приглашенного!\n\n<tg-emoji emoji-id=\"5346176879751612829\">📊</tg-emoji> Количество приглашенных: <b>{count}</b>\n<tg-emoji emoji-id=\"5346176879751612829\">🔗</tg-emoji> Ваша ссылка: <code>{ref_link}</code>",
             "image_url": "https://i.ibb.co/mk5W6Vt/4.png"
         },
         "reset_key_confirm": {
