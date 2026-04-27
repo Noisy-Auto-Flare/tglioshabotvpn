@@ -504,67 +504,14 @@ class RemnaWaveService:
 
         headers = self._build_panel_headers(panel_base)
         payload = {
-            "uuid": "", 
-            "profileTitle": "", 
-            "supportLink": "", 
             "profileUpdateInterval": 1, 
             "isProfileWebpageUrlEnabled": True, 
             "serveJsonAtBaseSubscription": True, 
-            "happAnnounce": None, 
-            "happRouting": None, 
             "isShowCustomRemarks": True, 
-            "customRemarks": { 
-                "expiredUsers": [ "" ], 
-                "limitedUsers": [ "" ], 
-                "disabledUsers": [ "" ], 
-                "emptyHosts": [ "" ], 
-                "HWIDMaxDevicesExceeded": [ "" ], 
-                "HWIDNotSupported": [ "" ] 
-            }, 
-            "customResponseHeaders": { 
-                "additionalProperty": "" 
-            }, 
             "randomizeHosts": True, 
-            "responseRules": { 
-                "version": "1", 
-                "settings": { 
-                    "disableSubscriptionAccessByPath": True 
-                }, 
-                "rules": [ 
-                    { 
-                        "name": "", 
-                        "description": "", 
-                        "enabled": True, 
-                        "operator": "AND", 
-                        "conditions": [ 
-                            { 
-                                "headerName": "", 
-                                "operator": "EQUALS", 
-                                "value": "", 
-                                "caseSensitive": True 
-                            } 
-                        ], 
-                        "responseType": "XRAY_JSON", 
-                        "responseModifications": { 
-                            "headers": [ 
-                                { 
-                                    "key": "", 
-                                    "value": "" 
-                                } 
-                            ], 
-                            "applyHeadersToEnd": True, 
-                            "subscriptionTemplate": "", 
-                            "ignoreHostXrayJsonTemplate": True, 
-                            "ignoreServeJsonAtBaseSubscription": True, 
-                            "additionalExtendedClientsRegex": [ "" ] 
-                        } 
-                    } 
-                ] 
-            }, 
             "hwidSettings": { 
                 "enabled": True, 
-                "fallbackDeviceLimit": 1, 
-                "maxDevicesAnnounce": None 
+                "fallbackDeviceLimit": 1
             }
         }
         try:
