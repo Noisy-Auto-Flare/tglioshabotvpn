@@ -25,11 +25,11 @@ async def init_screens(db: AsyncSession):
             "image_url": "https://i.ibb.co/3yFztHqy/2.png"
         },
         "profile_main": {
-            "text": "👤 <b>Мой профиль</b>\n\n🆔 Ваш ID: <code>{telegram_id}</code>\n💰 Баланс: <b>{balance}р</b>\n📝 Статус: <b>{status_text}</b>\n\n{vpn_info}",
+            "text": "<tg-emoji emoji-id=\"5362079447136610876\">👤</tg-emoji> <b>Мой профиль</b>\n\n<tg-emoji emoji-id=\"5395444784611480792\">🆔</tg-emoji> Ваш ID: <code>{telegram_id}</code>\n<tg-emoji emoji-id=\"5278467510604160626\">💰</tg-emoji> Баланс: <b>{balance}₽</b>\n<tg-emoji emoji-id=\"5348178055338671586\">📝</tg-emoji> Статус подписки: {status_text}\n\n<tg-emoji emoji-id=\"5197288647275071607\">🔑</tg-emoji> <b>Ваш ключ:</b>\n<code>{vpn_info}</code>",
             "image_url": "https://i.ibb.co/PvqTBwvW/image.png"
         },
         "statistics": {
-            "text": "📊 <b>Статистика</b>\n\n- ID: <code>{user_id}</code>\n- Статус: <b>{status}</b>\n- Остаток дней: <b>{days_left}</b>\n- Кол-во покупок: <b>{total_orders}</b>\n- Текущий протокол: <b>{protocol_type}</b>\n- Лимит трафика: <b>{used_gb}/{total_gb} GB</b>",
+            "text": "<tg-emoji emoji-id=\"5449872877929127395\">📊</tg-emoji> <b>Статистика</b>\n\n<tg-emoji emoji-id=\"5346176879751612829\">🆔</tg-emoji> ID: <code>{user_id}</code>\n<tg-emoji emoji-id=\"5346176879751612829\">📝</tg-emoji> Статус подписки: {status}\n<tg-emoji emoji-id=\"5346176879751612829\">📅</tg-emoji> Остаток дней: <b>{days_left}</b>\n<tg-emoji emoji-id=\"5346176879751612829\">🛒</tg-emoji> Кол-во покупок: <b>{total_orders}</b>\n<tg-emoji emoji-id=\"5346176879751612829\">⚙️</tg-emoji> Текущий протокол: <b>{protocol_type}</b>\n<tg-emoji emoji-id=\"5346176879751612829\">📊</tg-emoji> Лимит трафика: <b>{used_gb} / {total_gb} GB</b>",
             "image_url": "https://i.ibb.co/PGxF0KCz/6.png"
         },
         "deposit_menu": {
@@ -45,7 +45,7 @@ async def init_screens(db: AsyncSession):
             "image_url": "https://i.ibb.co/Dgky69mM/5.png"
         },
         "referral_system": {
-            "text": "👥 <b>Реферальная система</b>\n\nПриглашайте друзей и получайте бонусы на баланс!\n\nКоличество приглашенных: <b>{count}</b>\nВаша ссылка: <code>{ref_link}</code>",
+            "text": "👥 <b>Реферальная система</b>\n\nПриглашайте друзей и получайте <b>+2 дня</b> к вашей подписке за каждого приглашенного!\n\nКоличество приглашенных: <b>{count}</b>\nВаша ссылка: <code>{ref_link}</code>",
             "image_url": "https://i.ibb.co/mk5W6Vt/4.png"
         },
         "reset_key_confirm": {
@@ -56,6 +56,10 @@ async def init_screens(db: AsyncSession):
         },
         "my_subscriptions": {
             "text": "📜 <b>Ваши подписки</b>\n\nВыберите подписку из списка ниже для управления:",
+        },
+        "required_sub": {
+            "text": "⚠️ <b>Обязательная подписка</b>\n\nДля использования бота вы должны быть подписаны на наш канал {channel}.\n\nПодпишитесь и нажмите кнопку «Проверить подписку».",
+            "image_url": "https://i.ibb.co/j9PDJHrD/image.png"
         }
     }
 

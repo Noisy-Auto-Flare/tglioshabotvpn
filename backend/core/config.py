@@ -60,6 +60,9 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     LOG_LEVEL: str = "INFO"
 
+    # Mandatory Subscription
+    REQUIRED_CHANNEL: str = "@StingerVPN"
+
     # VPN Plans
     PLANS: dict = {
         "30": {"price": 190, "gb": 90, "label": "30 дней - 190р"},

@@ -49,6 +49,17 @@ from bot.services.renderer import render_screen, safe_edit
 logger = logging.getLogger(__name__)
 router = Router()
 
+async def _check_channel_sub(bot, user_id: int) -> bool:
+    """Checks if user is subscribed to the required channel."""
+    if not settings.REQUIRED_CHANNEL:
+        return True
+    try:
+        member = await bot.get_chat_member(settings.REQUIRED_CHANNEL, user_id)
+        return member.status in ["member", "administrator", "creator"]
+    except Exception as e:
+        logger.error(f"Error checking channel sub for {user_id}: {e}")
+        return False
+
 async def _get_user_by_tg(db: AsyncSession, telegram_id: int) -> Optional[User]:
     stmt = select(User).where(User.telegram_id == telegram_id)
     result = await db.execute(stmt)
@@ -84,18 +95,20 @@ async def _show_profile(event: Union[Message, CallbackQuery], db: AsyncSession, 
         vpn_result = await db.execute(vpn_stmt)
         vpn_key = vpn_result.scalar_one_or_none()
 
-    status_text = "❌ Нет активной подписки"
-    vpn_info = ""
+    status_text = '<tg-emoji emoji-id="5210952531676504517">❌</tg-emoji> Отсутствует'
+    vpn_info = "Отсутствует"
     if sub:
         remaining = sub.end_date - now
-        status_text = f"✅ Активна (осталось {max(0, remaining.days)} дн.)"
+        days = remaining.days
+        hours = remaining.seconds // 3600
+        status_text = f'<tg-emoji emoji-id="5206607081334906820">✅</tg-emoji> Активна (осталось {days} дн. {hours} ч.)'
         
         if vpn_key and vpn_key.is_active:
-            vpn_info = f"\n🔑 <b>Ваш ключ:</b>\n<code>{vpn_key.config}</code>"
+            vpn_info = f"{vpn_key.config}"
         elif vpn_key:
-            vpn_info = "\n🔑 <b>Ключ в процессе создания...</b>"
+            vpn_info = "Ключ в процессе создания..."
         else:
-            vpn_info = "\n🔑 <b>Ключ еще не получен.</b>"
+            vpn_info = "Ключ еще не получен."
 
     await render_screen(
         event,
@@ -112,6 +125,18 @@ async def _show_profile(event: Union[Message, CallbackQuery], db: AsyncSession, 
 async def cmd_start(message: Message, db: AsyncSession):
     if not message.from_user:
         return
+    
+    # 1. Check channel sub
+    is_subbed = await _check_channel_sub(message.bot, message.from_user.id)
+    if not is_subbed:
+        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📢 Подписаться на канал", url=f"https://t.me/{settings.REQUIRED_CHANNEL.lstrip('@')}")],
+            [InlineKeyboardButton(text="✅ Проверить подписку", callback_data="check_sub_status")]
+        ])
+        await render_screen(message, db, "required_sub", keyboard=keyboard, channel=settings.REQUIRED_CHANNEL)
+        return
+
     user = await _get_user_by_tg(db, message.from_user.id)
     if not user:
         referral_code = str(uuid.uuid4())[:8]
@@ -122,6 +147,29 @@ async def cmd_start(message: Message, db: AsyncSession):
             inviter = (await db.execute(ref_stmt)).scalar_one_or_none()
             if inviter:
                 referred_by = inviter.id
+                # Fix referral: +2 days for inviter
+                sub_stmt = select(Subscription).where(
+                    Subscription.user_id == inviter.id,
+                    Subscription.status == SubscriptionStatus.ACTIVE
+                ).order_by(Subscription.end_date.desc()).limit(1)
+                inviter_sub = (await db.execute(sub_stmt)).scalar_one_or_none()
+                if inviter_sub:
+                    inviter_sub.end_date += timedelta(days=2)
+                    # Also update VPNKey expiration
+                    vpn_stmt = select(VPNKey).where(VPNKey.subscription_id == inviter_sub.id)
+                    vpn_key = (await db.execute(vpn_stmt)).scalar_one_or_none()
+                    if vpn_key:
+                        vpn_key.expire_at = inviter_sub.end_date
+                    
+                    # Notify inviter
+                    if message.bot:
+                        try:
+                            await message.bot.send_message(
+                                inviter.telegram_id,
+                                f"🎁 Вы получили +2 дня подписки за приглашение нового пользователя!"
+                            )
+                        except Exception:
+                            pass
 
         user = User(
             telegram_id=message.from_user.id,
@@ -132,6 +180,77 @@ async def cmd_start(message: Message, db: AsyncSession):
         await db.commit()
 
     await render_screen(message, db, "main_menu", keyboard=get_main_menu())
+
+@router.callback_query(F.data == "check_sub_status")
+async def check_sub_status(callback: CallbackQuery, db: AsyncSession):
+    is_subbed = await _check_channel_sub(callback.bot, callback.from_user.id)
+    if is_subbed:
+        await callback.answer("✅ Спасибо за подписку!", show_alert=True)
+        await open_main_menu(callback, db)
+    else:
+        await callback.answer("❌ Вы все еще не подписаны на канал!", show_alert=True)
+
+# --- Admin Broadcast ---
+@router.message(F.text.startswith("/broadcast"), F.from_user.id.in_(settings.ADMIN_IDS))
+async def cmd_broadcast(message: Message, db: AsyncSession):
+    if not message.text or not message.bot: return
+    # Format: /broadcast text
+    parts = message.text.split(maxsplit=1)
+    if len(parts) < 2:
+        await message.answer("❌ Использование: /broadcast [текст]")
+        return
+    
+    broadcast_text = parts[1]
+    
+    # Get all users
+    stmt = select(User.telegram_id)
+    res = await db.execute(stmt)
+    user_ids = res.scalars().all()
+    
+    count = 0
+    for uid in user_ids:
+        try:
+            await message.bot.send_message(uid, broadcast_text)
+            count += 1
+        except Exception:
+            continue
+    
+    await message.answer(f"✅ Рассылка завершена! Отправлено {count} пользователям.")
+
+@router.message(F.from_user.id.in_(settings.ADMIN_IDS))
+async def admin_broadcast_copy(message: Message, db: AsyncSession):
+    # If admin sends any message (photo, video, etc) - offer to broadcast it
+    # But only if it's not a command
+    if message.text and message.text.startswith("/"):
+        return
+    
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🚀 Запустить рассылку", callback_data=f"start_broadcast_{message.message_id}")]
+    ])
+    await message.reply("Вы хотите разослать это сообщение всем пользователям?", reply_markup=keyboard)
+
+@router.callback_query(F.data.startswith("start_broadcast_"), F.from_user.id.in_(settings.ADMIN_IDS))
+async def process_broadcast(callback: CallbackQuery, db: AsyncSession):
+    if not callback.data or not callback.bot or not callback.message: return
+    msg_id = int(callback.data.split("_")[-1])
+    
+    # Get all users
+    stmt = select(User.telegram_id)
+    res = await db.execute(stmt)
+    user_ids = res.scalars().all()
+    
+    count = 0
+    for uid in user_ids:
+        try:
+            await callback.bot.copy_message(uid, callback.from_user.id, msg_id)
+            count += 1
+        except Exception:
+            continue
+    
+    await callback.answer(f"✅ Рассылка завершена! Отправлено {count} пользователям.", show_alert=True)
+    if isinstance(callback.message, Message):
+        await callback.message.delete()
 
 @router.callback_query(F.data == "main_menu")
 async def open_main_menu(callback: CallbackQuery, db: AsyncSession):
@@ -233,9 +352,17 @@ async def manage_subscription(callback: CallbackQuery, db: AsyncSession):
     plan_label = settings.PLANS.get(sub.plan, {}).get("label", f"Подписка #{sub.id}")
     end_date_str = sub.end_date.strftime("%d.%m.%Y")
 
+    # Get config link for this sub
+    vpn_stmt = select(VPNKey).where(
+        VPNKey.subscription_id == sub.id,
+        VPNKey.is_active == True
+    ).order_by(VPNKey.id.desc()).limit(1)
+    vpn_key = (await db.execute(vpn_stmt)).scalar_one_or_none()
+    config_url = vpn_key.config if vpn_key else None
+
     await render_screen(
         callback, db, "sub_management",
-        keyboard=get_sub_management_keyboard(sub.id),
+        keyboard=get_sub_management_keyboard(sub.id, config_url),
         plan_label=plan_label,
         end_date=end_date_str
     )
@@ -371,12 +498,12 @@ async def open_statistics(callback: CallbackQuery, db: AsyncSession):
         callback, db, "statistics",
         keyboard=get_back_to_main(),
         user_id=user.telegram_id,
-        status="Active" if sub else "Inactive",
+        status=f'<tg-emoji emoji-id="5206607081334906820">✅</tg-emoji> Активна' if sub else f'<tg-emoji emoji-id="5210952531676504517">❌</tg-emoji> Отсутствует',
         days_left=days_left,
         total_orders=total_orders,
         protocol_type="VLESS/Reality",
         used_gb=0,
-        total_gb=total_gb
+        total_gb=total_gb if total_gb > 0 else "∞"
     )
     await callback.answer()
 
@@ -387,13 +514,39 @@ async def open_deposit_menu(callback: CallbackQuery, db: AsyncSession):
 
 @router.callback_query(F.data == "info_menu")
 async def open_info_menu(callback: CallbackQuery, db: AsyncSession):
-    await render_screen(callback, db, "info_menu", keyboard=get_info_menu_keyboard())
+    user = await _get_user_by_tg(db, callback.from_user.id)
+    config_url = None
+    if user:
+        # Find latest active sub and its key
+        sub_stmt = select(Subscription).where(
+            Subscription.user_id == user.id,
+            Subscription.status == SubscriptionStatus.ACTIVE,
+            Subscription.end_date > datetime.now()
+        ).order_by(Subscription.end_date.desc()).limit(1)
+        sub = (await db.execute(sub_stmt)).scalar_one_or_none()
+        
+        if sub:
+            vpn_stmt = select(VPNKey).where(
+                VPNKey.subscription_id == sub.id,
+                VPNKey.is_active == True
+            ).order_by(VPNKey.id.desc()).limit(1)
+            vpn_key = (await db.execute(vpn_stmt)).scalar_one_or_none()
+            if vpn_key:
+                config_url = vpn_key.config
+
+    await render_screen(callback, db, "info_menu", keyboard=get_info_menu_keyboard(config_url))
     await callback.answer()
+
+@router.callback_query(F.data == "no_active_sub_alert")
+async def no_active_sub_alert(callback: CallbackQuery):
+    await callback.answer("❌ У вас нет активной подписки!", show_alert=True)
 
 @router.callback_query(F.data == "setup_guides")
 async def open_setup_guides(callback: CallbackQuery, db: AsyncSession):
-    await render_screen(callback, db, "setup_guides", keyboard=get_setup_guides_keyboard())
-    await callback.answer()
+    # This handler might still be needed if some old messages have it, 
+    # but new ones should use the URL/alert logic.
+    # For now, let's just show an alert or redirect to info_menu.
+    await callback.answer("❌ Этот раздел больше не доступен. Используйте кнопку Инструкции в меню управления подпиской.", show_alert=True)
 
 @router.callback_query(F.data == "referral_system")
 async def open_referral(callback: CallbackQuery, db: AsyncSession):
