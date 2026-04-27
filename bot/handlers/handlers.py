@@ -215,13 +215,16 @@ async def check_sub_status(callback: CallbackQuery, db: AsyncSession):
 @router.message(F.text.startswith("/broadcast"), F.from_user.id.in_(settings.ADMIN_IDS))
 async def cmd_broadcast(message: Message, db: AsyncSession):
     if not message.text or not message.bot: return
-    # Format: /broadcast text
-    parts = message.text.split(maxsplit=1)
+    
+    # Используем html_text для сохранения форматирования и премиум-эмодзи
+    html_text = message.html_text
+    parts = html_text.split(maxsplit=1)
+    
     if len(parts) < 2:
         await message.answer("❌ Использование: /broadcast [текст]")
         return
     
-    broadcast_text = parts[1]
+    broadcast_html = parts[1]
     
     # Get all users
     stmt = select(User.telegram_id)
@@ -231,8 +234,9 @@ async def cmd_broadcast(message: Message, db: AsyncSession):
     count = 0
     for uid in user_ids:
         try:
-            await message.bot.send_message(uid, broadcast_text)
+            await message.bot.send_message(uid, broadcast_html, parse_mode="HTML")
             count += 1
+            await asyncio.sleep(0.05)  # Anti-flood
         except Exception:
             continue
     
@@ -266,6 +270,7 @@ async def process_broadcast(callback: CallbackQuery, db: AsyncSession):
         try:
             await callback.bot.copy_message(uid, callback.from_user.id, msg_id)
             count += 1
+            await asyncio.sleep(0.05)  # Anti-flood
         except Exception:
             continue
     
