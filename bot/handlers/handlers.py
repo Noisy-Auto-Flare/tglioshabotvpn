@@ -125,6 +125,55 @@ async def cmd_start(message: Message, db: AsyncSession):
     if not message.from_user:
         return
     
+    user = await _get_user_by_tg(db, message.from_user.id)
+    
+    # Check if user is new and has a referral code
+    if not user and message.text and len(message.text.split()) > 1:
+        ref_code = message.text.split()[1]
+        referral_code = str(uuid.uuid4())[:8]
+        referred_by = None
+        
+        ref_stmt = select(User).where(User.referral_code == ref_code)
+        inviter = (await db.execute(ref_stmt)).scalar_one_or_none()
+        
+        if inviter:
+            referred_by = inviter.id
+            # Fix referral: +2 days for inviter
+            sub_stmt = select(Subscription).where(
+                Subscription.user_id == inviter.id,
+                Subscription.status == SubscriptionStatus.ACTIVE
+            ).order_by(Subscription.end_date.desc()).limit(1)
+            inviter_sub = (await db.execute(sub_stmt)).scalar_one_or_none()
+            
+            if inviter_sub:
+                inviter_sub.end_date += timedelta(days=2)
+                # Also update VPNKey expiration
+                vpn_stmt = select(VPNKey).where(VPNKey.subscription_id == inviter_sub.id)
+                vpn_key = (await db.execute(vpn_stmt)).scalar_one_or_none()
+                if vpn_key:
+                    vpn_key.expire_at = inviter_sub.end_date
+                
+                # Notify inviter
+                if message.bot:
+                    try:
+                        await message.bot.send_message(
+                            inviter.telegram_id,
+                            f"🎁 Вы получили +2 дня подписки за приглашение нового пользователя!"
+                        )
+                    except Exception:
+                        pass
+        
+        # Create user immediately to save referral info even if not subbed yet
+        user = User(
+            telegram_id=message.from_user.id,
+            referral_code=referral_code,
+            referred_by=referred_by,
+        )
+        db.add(user)
+        await db.commit()
+        # Refresh user from DB
+        user = await _get_user_by_tg(db, message.from_user.id)
+
     # 1. Check channel sub
     is_subbed = await _check_channel_sub(message.bot, message.from_user.id)
     if not is_subbed:
@@ -136,44 +185,12 @@ async def cmd_start(message: Message, db: AsyncSession):
         await render_screen(message, db, "required_sub", keyboard=keyboard, channel=settings.REQUIRED_CHANNEL)
         return
 
-    user = await _get_user_by_tg(db, message.from_user.id)
     if not user:
         referral_code = str(uuid.uuid4())[:8]
-        referred_by = None
-        if message.text and len(message.text.split()) > 1:
-            ref_code = message.text.split()[1]
-            ref_stmt = select(User).where(User.referral_code == ref_code)
-            inviter = (await db.execute(ref_stmt)).scalar_one_or_none()
-            if inviter:
-                referred_by = inviter.id
-                # Fix referral: +2 days for inviter
-                sub_stmt = select(Subscription).where(
-                    Subscription.user_id == inviter.id,
-                    Subscription.status == SubscriptionStatus.ACTIVE
-                ).order_by(Subscription.end_date.desc()).limit(1)
-                inviter_sub = (await db.execute(sub_stmt)).scalar_one_or_none()
-                if inviter_sub:
-                    inviter_sub.end_date += timedelta(days=2)
-                    # Also update VPNKey expiration
-                    vpn_stmt = select(VPNKey).where(VPNKey.subscription_id == inviter_sub.id)
-                    vpn_key = (await db.execute(vpn_stmt)).scalar_one_or_none()
-                    if vpn_key:
-                        vpn_key.expire_at = inviter_sub.end_date
-                    
-                    # Notify inviter
-                    if message.bot:
-                        try:
-                            await message.bot.send_message(
-                                inviter.telegram_id,
-                                f"🎁 Вы получили +2 дня подписки за приглашение нового пользователя!"
-                            )
-                        except Exception:
-                            pass
-
         user = User(
             telegram_id=message.from_user.id,
             referral_code=referral_code,
-            referred_by=referred_by,
+            referred_by=None,
         )
         db.add(user)
         await db.commit()
