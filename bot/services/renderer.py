@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Optional, Any, Union
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import Message, CallbackQuery, InputMediaPhoto
@@ -15,7 +16,6 @@ async def safe_edit(
 ) -> bool:
     """Safely edit a message, handling both text and media (photo) messages. Returns True if successful."""
     try:
-        # Try to edit as text message
         await message.edit_text(
             text=text,
             reply_markup=reply_markup,
@@ -26,7 +26,22 @@ async def safe_edit(
     except TelegramBadRequest as e:
         if "message is not modified" in str(e):
             return True
-        # If it has a photo/media, use edit_caption
+        
+        # DOCUMENT_INVALID can happen if text contains invalid custom emojis
+        if "DOCUMENT_INVALID" in str(e) and parse_mode == "HTML":
+            logger.warning(f"DOCUMENT_INVALID in edit_text, stripping HTML and retrying: {e}")
+            clean_text = re.sub(r'<[^>]+>', '', text)
+            try:
+                await message.edit_text(
+                    text=clean_text,
+                    reply_markup=reply_markup,
+                    parse_mode=None,
+                    disable_web_page_preview=True
+                )
+                return True
+            except Exception as e3:
+                logger.error(f"Failed even with clean text: {e3}")
+
         if any(msg in str(e) for msg in ["there is no text in the message to edit", "message can't be edited", "MESSAGE_ID_INVALID", "DOCUMENT_INVALID"]):
             try:
                 await message.edit_caption(
@@ -38,6 +53,20 @@ async def safe_edit(
             except TelegramBadRequest as e2:
                 if "message is not modified" in str(e2):
                     return True
+                
+                if "DOCUMENT_INVALID" in str(e2) and parse_mode == "HTML":
+                    logger.warning(f"DOCUMENT_INVALID in edit_caption, stripping HTML and retrying: {e2}")
+                    clean_text = re.sub(r'<[^>]+>', '', text)
+                    try:
+                        await message.edit_caption(
+                            caption=clean_text,
+                            reply_markup=reply_markup,
+                            parse_mode=None
+                        )
+                        return True
+                    except Exception:
+                        pass
+                
                 if "DOCUMENT_INVALID" in str(e2):
                     logger.warning(f"Failed to edit caption (DOCUMENT_INVALID): {e2}")
                     return False
@@ -130,12 +159,25 @@ async def render_screen(
             except TelegramBadRequest as e:
                 if "DOCUMENT_INVALID" in str(e):
                     logger.warning(f"Failed to send photo (DOCUMENT_INVALID), falling back to text: {e}")
-                    await message.answer(
-                        text=text,
-                        reply_markup=keyboard,
-                        parse_mode="HTML",
-                        disable_web_page_preview=True,
-                    )
+                    try:
+                        await message.answer(
+                            text=text,
+                            reply_markup=keyboard,
+                            parse_mode="HTML",
+                            disable_web_page_preview=True,
+                        )
+                    except TelegramBadRequest as e_text:
+                        if "DOCUMENT_INVALID" in str(e_text):
+                            logger.warning(f"DOCUMENT_INVALID even in text message, stripping HTML: {e_text}")
+                            clean_text = re.sub(r'<[^>]+>', '', text)
+                            await message.answer(
+                                text=clean_text,
+                                reply_markup=keyboard,
+                                parse_mode=None,
+                                disable_web_page_preview=True,
+                            )
+                        else:
+                            raise e_text
                 else:
                     raise e
         else:
