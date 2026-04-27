@@ -153,15 +153,20 @@ async def cmd_start(message: Message, db: AsyncSession):
                 if vpn_key:
                     vpn_key.expire_at = inviter_sub.end_date
                 
-                # Notify inviter
-                if message.bot:
-                    try:
-                        await message.bot.send_message(
-                            inviter.telegram_id,
-                            f"🎁 Вы получили +2 дня подписки за приглашение нового пользователя!"
-                        )
-                    except Exception:
-                        pass
+                notification_msg = f"🎁 По вашей ссылке перешел новый пользователь! Вам начислено <b>+2 дня</b> подписки."
+            else:
+                notification_msg = f"👥 По вашей ссылке перешел новый пользователь! К сожалению, у вас нет активной подписки для начисления бонусных дней."
+
+            # Notify inviter
+            if message.bot:
+                try:
+                    await message.bot.send_message(
+                        inviter.telegram_id,
+                        notification_msg,
+                        parse_mode="HTML"
+                    )
+                except Exception:
+                    pass
         
         # Create user immediately to save referral info even if not subbed yet
         user = User(
