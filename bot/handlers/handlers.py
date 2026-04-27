@@ -37,7 +37,6 @@ from bot.keyboards.keyboards import (
     get_payment_methods,
     get_profile_main_keyboard,
     get_info_menu_keyboard,
-    get_setup_guides_keyboard,
     get_back_to_main,
     get_deposit_methods,
     get_reset_key_confirm_keyboard,
