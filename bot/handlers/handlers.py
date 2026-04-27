@@ -153,6 +153,17 @@ async def cmd_start(message: Message, db: AsyncSession):
                 vpn_keys = (await db.execute(vpn_stmt)).scalars().all()
                 for vpn_key in vpn_keys:
                     vpn_key.expire_at = inviter_sub.end_date
+                    # Sync with RemnaWave panel
+                    if vpn_key.uuid:
+                        try:
+                            # Use asyncio.to_thread for synchronous curl-based calls
+                            await asyncio.to_thread(
+                                vpn_service.update_user_expiration,
+                                vpn_key.uuid,
+                                inviter_sub.end_date
+                            )
+                        except Exception as vpn_err:
+                            logger.error(f"Failed to sync expiration with RemnaWave for user {inviter.id}: {vpn_err}")
                 
                 notification_msg = f"🎁 По вашей ссылке перешел новый пользователь! Вам начислено <b>+2 дня</b> подписки."
             else:

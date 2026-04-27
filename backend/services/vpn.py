@@ -230,7 +230,8 @@ class RemnaWaveService:
         else:
             unique_username = f"user_{telegram_id}_{int(time.time())}"
         
-        expire_at = (datetime.now() + timedelta(days=days)).isoformat() + "Z"
+        expire_at_val = datetime.now() + timedelta(days=days)
+        expire_at = expire_at_val.strftime("%Y-%m-%dT%H:%M:%SZ")
         payload = {
             "username": unique_username,
             "status": "ACTIVE",
@@ -460,6 +461,129 @@ class RemnaWaveService:
             return False
         except Exception as e:
             logger.exception("Failed to add user %s to squad %s: %s", user_uuid, squad_uuid, e)
+            return False
+
+    def update_user_expiration(self, user_uuid: str, expire_at: datetime) -> bool:
+        """Updates user expiration date in RemnaWave."""
+        panel_base = self.api_url
+        if panel_base.endswith("/api"):
+            panel_base = panel_base[:-4]
+
+        headers = self._build_panel_headers(panel_base)
+        # Format: 2024-04-27T19:32:17Z
+        expire_str = expire_at.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        payload = {
+            "uuid": user_uuid,
+            "expireAt": expire_str
+        }
+        try:
+            response = curl_requests.patch(
+                f"{panel_base}/api/users",
+                headers=headers,
+                json=payload,
+                impersonate="chrome120",
+                http_version=CurlHttpVersion.V1_1,
+                timeout=30,
+                verify=False
+            )
+            if response.status_code in (200, 201, 204):
+                logger.info("Successfully updated expiration for user_uuid=%s to %s", user_uuid, expire_str)
+                return True
+            logger.error("Failed to update user expiration: status=%s body=%s", response.status_code, response.text)
+            return False
+        except Exception as e:
+            logger.exception("Error updating user expiration: %s", e)
+            return False
+
+    def sync_subscription_settings(self) -> bool:
+        """Updates global subscription settings as requested by user for correct 'add days' behavior."""
+        panel_base = self.api_url
+        if panel_base.endswith("/api"):
+            panel_base = panel_base[:-4]
+
+        headers = self._build_panel_headers(panel_base)
+        payload = {
+            "uuid": "", 
+            "profileTitle": "", 
+            "supportLink": "", 
+            "profileUpdateInterval": 1, 
+            "isProfileWebpageUrlEnabled": True, 
+            "serveJsonAtBaseSubscription": True, 
+            "happAnnounce": None, 
+            "happRouting": None, 
+            "isShowCustomRemarks": True, 
+            "customRemarks": { 
+                "expiredUsers": [ "" ], 
+                "limitedUsers": [ "" ], 
+                "disabledUsers": [ "" ], 
+                "emptyHosts": [ "" ], 
+                "HWIDMaxDevicesExceeded": [ "" ], 
+                "HWIDNotSupported": [ "" ] 
+            }, 
+            "customResponseHeaders": { 
+                "additionalProperty": "" 
+            }, 
+            "randomizeHosts": True, 
+            "responseRules": { 
+                "version": "1", 
+                "settings": { 
+                    "disableSubscriptionAccessByPath": True 
+                }, 
+                "rules": [ 
+                    { 
+                        "name": "", 
+                        "description": "", 
+                        "enabled": True, 
+                        "operator": "AND", 
+                        "conditions": [ 
+                            { 
+                                "headerName": "", 
+                                "operator": "EQUALS", 
+                                "value": "", 
+                                "caseSensitive": True 
+                            } 
+                        ], 
+                        "responseType": "XRAY_JSON", 
+                        "responseModifications": { 
+                            "headers": [ 
+                                { 
+                                    "key": "", 
+                                    "value": "" 
+                                } 
+                            ], 
+                            "applyHeadersToEnd": True, 
+                            "subscriptionTemplate": "", 
+                            "ignoreHostXrayJsonTemplate": True, 
+                            "ignoreServeJsonAtBaseSubscription": True, 
+                            "additionalExtendedClientsRegex": [ "" ] 
+                        } 
+                    } 
+                ] 
+            }, 
+            "hwidSettings": { 
+                "enabled": True, 
+                "fallbackDeviceLimit": 1, 
+                "maxDevicesAnnounce": None 
+            }
+        }
+        try:
+            response = curl_requests.patch(
+                f"{panel_base}/api/subscription-settings",
+                headers=headers,
+                json=payload,
+                impersonate="chrome120",
+                http_version=CurlHttpVersion.V1_1,
+                timeout=30,
+                verify=False
+            )
+            if response.status_code in (200, 201, 204):
+                logger.info("Successfully updated global subscription settings")
+                return True
+            logger.error("Failed to update global subscription settings: status=%s body=%s", response.status_code, response.text)
+            return False
+        except Exception as e:
+            logger.exception("Error updating global subscription settings: %s", e)
             return False
 
     def get_user_active_squads(self, user_uuid: str) -> Optional[List[Any]]:

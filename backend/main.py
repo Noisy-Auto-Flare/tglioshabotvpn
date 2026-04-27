@@ -46,7 +46,11 @@ async def lifespan(app: FastAPI):
     async with AsyncSessionLocal() as db:
         await init_screens(db)
     
-    logger.info("Database tables and schema initialized.")
+    # Sync global subscription settings with RemnaWave
+    from backend.services.vpn import vpn_service
+    await asyncio.to_thread(vpn_service.sync_subscription_settings)
+    
+    logger.info("Database tables, schema, and RemnaWave settings initialized.")
 
     # Start background tasks
     tasks = []
