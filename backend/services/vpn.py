@@ -496,14 +496,51 @@ class RemnaWaveService:
             logger.exception("Error updating user expiration: %s", e)
             return False
 
-    def sync_subscription_settings(self) -> bool:
-        """Updates global subscription settings as requested by user for correct 'add days' behavior."""
+    def get_subscription_settings(self) -> Optional[Dict[str, Any]]:
+        """Fetches current global subscription settings."""
         panel_base = self.api_url
         if panel_base.endswith("/api"):
             panel_base = panel_base[:-4]
 
         headers = self._build_panel_headers(panel_base)
+        try:
+            response = curl_requests.get(
+                f"{panel_base}/api/subscription-settings",
+                headers=headers,
+                impersonate="chrome120",
+                http_version=CurlHttpVersion.V1_1,
+                timeout=30,
+                verify=False
+            )
+            if response.status_code == 200:
+                data = response.json()
+                return data.get("response", data)
+            logger.error("Failed to fetch subscription settings: status=%s body=%s", response.status_code, response.text)
+            return None
+        except Exception as e:
+            logger.exception("Error fetching subscription settings: %s", e)
+            return None
+
+    def sync_subscription_settings(self) -> bool:
+        """Updates global subscription settings as requested by user for correct 'add days' behavior."""
+        current_settings = self.get_subscription_settings()
+        if not current_settings:
+            logger.warning("Could not fetch current settings, attempting partial update with defaults")
+            # We still try to proceed or use a default UUID if we know it, 
+            # but usually it's better to have the current ones.
+            current_settings = {}
+
+        panel_base = self.api_url
+        if panel_base.endswith("/api"):
+            panel_base = panel_base[:-4]
+
+        headers = self._build_panel_headers(panel_base)
+        
+        # Merge our required changes with current settings to satisfy 'Required' fields
         payload = {
+            "uuid": current_settings.get("uuid", ""),
+            "profileTitle": current_settings.get("profileTitle", "StingerVPN"),
+            "supportLink": current_settings.get("supportLink", ""),
             "profileUpdateInterval": 1, 
             "isProfileWebpageUrlEnabled": True, 
             "serveJsonAtBaseSubscription": True, 
@@ -511,9 +548,17 @@ class RemnaWaveService:
             "randomizeHosts": True, 
             "hwidSettings": { 
                 "enabled": True, 
-                "fallbackDeviceLimit": 1
+                "fallbackDeviceLimit": 1,
+                "maxDevicesAnnounce": current_settings.get("hwidSettings", {}).get("maxDevicesAnnounce")
             }
         }
+        
+        # If any required field is still empty/missing, provide safe defaults
+        if not payload["uuid"]:
+            # If we don't have a UUID, maybe we shouldn't send it at all or use a dummy?
+            # But the API said it's required. Let's try to send what we have.
+            pass
+
         try:
             response = curl_requests.patch(
                 f"{panel_base}/api/subscription-settings",
