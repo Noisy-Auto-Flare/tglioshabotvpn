@@ -9,7 +9,7 @@ async def init_screens(db: AsyncSession):
     
     default_screens = {
         "main_menu": {
-            "text": "<tg-emoji emoji-id=\"5395732581780040886\">👋</tg-emoji> {name}, добро пожаловать в StingerVPN!\n\n<tg-emoji emoji-id=\"5456140674028019486\">🚀</tg-emoji> Ощути интернет таким, каким он должен быть.\n\n<tg-emoji emoji-id=\"5188481279963715781\">⚡️</tg-emoji> Активируй доступ:",
+            "text": "<tg-emoji emoji-id=\"5395732581780040886\">👋</tg-emoji><b> {name}, добро пожаловать в StingerVPN!\n\n</b><tg-emoji emoji-id=\"5456140674028019486\">🚀</tg-emoji> Ощути интернет таким, каким он должен быть.\n\n<tg-emoji emoji-id=\"5188481279963715781\">⚡️</tg-emoji> Активируй доступ:",
             "image_url": "https://i.ibb.co/j9PDJHrD/image.png"
         },
         "buy_menu": {
