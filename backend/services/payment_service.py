@@ -52,8 +52,8 @@ class PaymentService:
 
         plan_id = payment.payload or "30" # Fallback to 30 days
         plan_days = int(plan_id)
-        plan_config = settings.PLANS.get(plan_id, {"gb": 30})
-        traffic_gb = plan_config.get("gb", 30)
+        plan_config = settings.PLANS.get(plan_id, {"gb": 300})
+        traffic_gb = plan_config.get("gb", 300)
 
         now = datetime.now()
         end_date = now + timedelta(days=plan_days)

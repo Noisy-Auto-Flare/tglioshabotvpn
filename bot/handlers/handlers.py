@@ -305,11 +305,11 @@ async def process_trial(callback: CallbackQuery, db: AsyncSession):
 
     now = datetime.now()
     end_date = now + timedelta(days=3)
-    sub = Subscription(user_id=user.id, plan="trial", traffic_limit_gb=10, start_date=now, end_date=end_date)
+    sub = Subscription(user_id=user.id, plan="trial", traffic_limit_gb=30, start_date=now, end_date=end_date)
     db.add(sub)
     await db.flush()
 
-    vpn_data = await asyncio.to_thread(vpn_service.create_user_and_get_link, user.telegram_id, 10, 3)
+    vpn_data = await asyncio.to_thread(vpn_service.create_user_and_get_link, user.telegram_id, 30, 3)
     if vpn_data:
         db.add(VPNKey(
             user_id=user.id, 
