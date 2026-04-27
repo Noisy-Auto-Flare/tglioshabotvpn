@@ -87,7 +87,7 @@ def get_info_menu_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(icon_custom_emoji_id="5222444124698853913", text="Инструкции по настройке", callback_data="setup_guides")],
         [InlineKeyboardButton(icon_custom_emoji_id="5199750217586459631", text="Пользовательское соглашение", url="https://telegra.ph/Polzovatelskoe-soglashenie-04-01-19")],
         [InlineKeyboardButton(icon_custom_emoji_id="5400250414929041085", text="Политика конфиденциальности", url="https://telegra.ph/Politika-konfidencialnosti-04-01-26")],
-        [InlineKeyboardButton(icon_custom_emoji_id="5197288647275071607", text="Безопасность", url="https://telegra.ph/link_to_security")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5197288647275071607", text="Безопасность", url="https://telegra.ph/Bezopasnost-StingerVPN-04-27")],
         [InlineKeyboardButton(icon_custom_emoji_id="5447410659077661506", text="Проверка IP", url="https://whoer.net")],
         [InlineKeyboardButton(icon_custom_emoji_id="5188481279963715781", text="Скорость интернета", url="https://speedtest.net")],
         [InlineKeyboardButton(icon_custom_emoji_id="5258236805890710909", text="Назад", callback_data="main_menu")],
