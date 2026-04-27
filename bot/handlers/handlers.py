@@ -149,8 +149,8 @@ async def cmd_start(message: Message, db: AsyncSession):
                 inviter_sub.end_date += timedelta(days=2)
                 # Also update VPNKey expiration
                 vpn_stmt = select(VPNKey).where(VPNKey.subscription_id == inviter_sub.id)
-                vpn_key = (await db.execute(vpn_stmt)).scalar_one_or_none()
-                if vpn_key:
+                vpn_keys = (await db.execute(vpn_stmt)).scalars().all()
+                for vpn_key in vpn_keys:
                     vpn_key.expire_at = inviter_sub.end_date
                 
                 notification_msg = f"🎁 По вашей ссылке перешел новый пользователь! Вам начислено <b>+2 дня</b> подписки."

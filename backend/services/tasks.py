@@ -322,9 +322,9 @@ async def vpn_retry_task():
                 
                 for sub in active_subs:
                     # Check if vpn_key exists for this subscription
-                    key_stmt = select(VPNKey).where(VPNKey.subscription_id == sub.id)
+                    key_stmt = select(VPNKey).where(VPNKey.subscription_id == sub.id).limit(1)
                     key_res = await session.execute(key_stmt)
-                    if not key_res.scalar_one_or_none():
+                    if not key_res.scalars().first():
                         # Missing VPNKey record! Let's create it.
                         user_stmt = select(User).where(User.id == sub.user_id)
                         user_res = await session.execute(user_stmt)
