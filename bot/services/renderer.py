@@ -120,12 +120,24 @@ async def render_screen(
     # Send as a new message (used for non-callbacks or as fallback)
     try:
         if screen.image_url:
-            await message.answer_photo(
-                photo=screen.image_url,
-                caption=text,
-                reply_markup=keyboard,
-                parse_mode="HTML",
-            )
+            try:
+                await message.answer_photo(
+                    photo=screen.image_url,
+                    caption=text,
+                    reply_markup=keyboard,
+                    parse_mode="HTML",
+                )
+            except TelegramBadRequest as e:
+                if "DOCUMENT_INVALID" in str(e):
+                    logger.warning(f"Failed to send photo (DOCUMENT_INVALID), falling back to text: {e}")
+                    await message.answer(
+                        text=text,
+                        reply_markup=keyboard,
+                        parse_mode="HTML",
+                        disable_web_page_preview=True,
+                    )
+                else:
+                    raise e
         else:
             await message.answer(
                 text=text,

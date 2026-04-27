@@ -281,6 +281,10 @@ async def vpn_retry_task():
                 failed_keys = result.scalars().all()
                 
                 for vpn_key in failed_keys:
+                    # Refresh session state to avoid transaction issues
+                    await session.refresh(vpn_key)
+                    if vpn_key.is_active: continue
+
                     # Get user telegram_id
                     user_stmt = select(User).where(User.id == vpn_key.user_id)
                     user_res = await session.execute(user_stmt)
@@ -306,7 +310,20 @@ async def vpn_retry_task():
                             sub_id=vpn_key.subscription_id
                         )
                         if vpn_data:
-                            vpn_key.uuid = vpn_data["uuid"]
+                            new_uuid = vpn_data["uuid"]
+                            
+                            # Check if another record already has this UUID
+                            existing_uuid_stmt = select(VPNKey).where(VPNKey.uuid == new_uuid, VPNKey.id != vpn_key.id)
+                            existing_uuid_res = await session.execute(existing_uuid_stmt)
+                            existing_key = existing_uuid_res.scalar_one_or_none()
+                            
+                            if existing_key:
+                                logger.warning(f"UUID {new_uuid} already exists in record {existing_key.id}. Deleting current redundant record {vpn_key.id}")
+                                await session.delete(vpn_key)
+                                await session.commit()
+                                continue
+
+                            vpn_key.uuid = new_uuid
                             vpn_key.config = vpn_data["link"]
                             vpn_key.is_active = True
                             vpn_key.error_message = None
@@ -328,6 +345,7 @@ async def vpn_retry_task():
                             logger.warning(f"Retry failed for user {user.id}")
                     except Exception as retry_err:
                         logger.error(f"Error during retry for user {user.id}: {retry_err}")
+                        await session.rollback()
                     
                     # Add a small delay between users
                     await asyncio.sleep(2)
