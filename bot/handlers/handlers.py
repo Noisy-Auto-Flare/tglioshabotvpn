@@ -295,7 +295,7 @@ async def process_trial(callback: CallbackQuery, db: AsyncSession):
     
     stmt = select(Subscription).where(Subscription.user_id == user.id, Subscription.plan == "trial")
     if (await db.execute(stmt)).scalar_one_or_none():
-        await callback.answer("❌ Пробный период уже использован!", show_alert=True)
+        await callback.answer("❌ Пробный период уже активирован!", show_alert=True)
         return
 
     now = datetime.now()
