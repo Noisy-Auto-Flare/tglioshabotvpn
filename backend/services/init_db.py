@@ -13,7 +13,7 @@ async def init_screens(db: AsyncSession):
             "image_url": "https://i.ibb.co/j9PDJHrD/image.png"
         },
         "buy_menu": {
-            "text": "<tg-emoji emoji-id=\"5188481279963715781\"></tg-emoji> <b>Подключение</b>\n\nВыберите тип доступа:",
+            "text": "<tg-emoji emoji-id=\"5188481279963715781\">🚀</tg-emoji> <b>Подключение</b>\n\nВыберите тип доступа:",
             "image_url": "https://i.ibb.co/j9PDJHrD/image.png"
         },
         "tariff_list": {
