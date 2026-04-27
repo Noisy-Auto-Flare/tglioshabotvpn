@@ -188,7 +188,31 @@ class RemnaWaveService:
         return {"success": False, "error": "All creation endpoints failed"}
 
     def get_user_by_username(self, username: str) -> Optional[Dict[str, Any]]:
-        """Finds a user by username by listing all users."""
+        """Finds a user by username by listing all users or direct lookup."""
+        panel_base = self.api_url
+        if panel_base.endswith("/api"):
+            panel_base = panel_base[:-4]
+        headers = self._build_panel_headers(panel_base)
+
+        # 1. Try direct lookup if supported (RemnaWave often supports this)
+        try:
+            response = curl_requests.get(
+                f"{panel_base}/api/users/by-username/{username}",
+                headers=headers,
+                impersonate="chrome120",
+                http_version=CurlHttpVersion.V1_1,
+                timeout=10,
+                verify=False
+            )
+            if response.status_code == 200:
+                data = response.json()
+                user = data.get("response", data)
+                if isinstance(user, dict) and user.get("username") == username:
+                    return user
+        except Exception as e:
+            logger.debug(f"Direct username lookup failed: {e}")
+
+        # 2. Fallback to listing all users
         users = self.list_users()
         for user in users:
             if user.get("username") == username:

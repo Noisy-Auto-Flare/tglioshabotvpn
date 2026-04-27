@@ -287,7 +287,7 @@ async def vpn_retry_task():
                     user = user_res.scalar_one_or_none()
                     if not user: continue
 
-                    logger.info(f"Retrying VPN provisioning for user {user.id}")
+                    logger.info(f"Retrying VPN provisioning for user {user.id} (telegram_id {user.telegram_id})")
                     remaining_days = max(1, (vpn_key.expire_at - now).days)
                     traffic_gb = 30
                     if vpn_key.subscription_id:
@@ -297,20 +297,40 @@ async def vpn_retry_task():
                         if sub and sub.traffic_limit_gb:
                             traffic_gb = sub.traffic_limit_gb
 
-                    vpn_data = await asyncio.to_thread(
-                        vpn_service.create_user_and_get_link,
-                        user.telegram_id,
-                        traffic_gb,
-                        remaining_days,
-                        sub_id=vpn_key.subscription_id
-                    )
-                    if vpn_data:
-                        vpn_key.uuid = vpn_data["uuid"]
-                        vpn_key.config = vpn_data["link"]
-                        vpn_key.is_active = True
-                        vpn_key.error_message = None
-                        await session.commit()
-                        logger.info(f"Successfully fixed VPN key for user {user.id}")
+                    try:
+                        vpn_data = await asyncio.to_thread(
+                            vpn_service.create_user_and_get_link,
+                            user.telegram_id,
+                            traffic_gb,
+                            remaining_days,
+                            sub_id=vpn_key.subscription_id
+                        )
+                        if vpn_data:
+                            vpn_key.uuid = vpn_data["uuid"]
+                            vpn_key.config = vpn_data["link"]
+                            vpn_key.is_active = True
+                            vpn_key.error_message = None
+                            await session.commit()
+                            logger.info(f"Successfully fixed VPN key for user {user.id}")
+                            
+                            # Notify user that their key is now active
+                            try:
+                                async with Bot(token=settings.BOT_TOKEN) as bot:
+                                    await bot.send_message(
+                                        user.telegram_id,
+                                        "✅ Ваша подписка активирована!\n\n"
+                                        f"🔗 Ссылка: {vpn_data['link']}",
+                                        disable_web_page_preview=True
+                                    )
+                            except Exception as notify_err:
+                                logger.error(f"Failed to notify user {user.id} about fixed key: {notify_err}")
+                        else:
+                            logger.warning(f"Retry failed for user {user.id}")
+                    except Exception as retry_err:
+                        logger.error(f"Error during retry for user {user.id}: {retry_err}")
+                    
+                    # Add a small delay between users
+                    await asyncio.sleep(2)
                 
                 # 2. Find active subscriptions WITHOUT any VPNKey record
                 sub_stmt = select(Subscription).where(

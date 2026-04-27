@@ -12,8 +12,8 @@ async def safe_edit(
     text: str,
     reply_markup: Optional[Any] = None,
     parse_mode: str = "HTML"
-) -> None:
-    """Safely edit a message, handling both text and media (photo) messages."""
+) -> bool:
+    """Safely edit a message, handling both text and media (photo) messages. Returns True if successful."""
     try:
         # Try to edit as text message
         await message.edit_text(
@@ -22,22 +22,32 @@ async def safe_edit(
             parse_mode=parse_mode,
             disable_web_page_preview=True
         )
+        return True
     except TelegramBadRequest as e:
         if "message is not modified" in str(e):
-            return
+            return True
         # If it has a photo/media, use edit_caption
-        if "there is no text in the message to edit" in str(e) or "message can't be edited" in str(e):
+        if any(msg in str(e) for msg in ["there is no text in the message to edit", "message can't be edited", "MESSAGE_ID_INVALID", "DOCUMENT_INVALID"]):
             try:
                 await message.edit_caption(
                     caption=text,
                     reply_markup=reply_markup,
                     parse_mode=parse_mode
                 )
+                return True
             except TelegramBadRequest as e2:
-                if "message is not modified" not in str(e2):
-                    logger.error(f"Failed to edit caption: {e2}")
+                if "message is not modified" in str(e2):
+                    return True
+                if "DOCUMENT_INVALID" in str(e2):
+                    logger.warning(f"Failed to edit caption (DOCUMENT_INVALID): {e2}")
+                    return False
+                logger.warning(f"Failed to edit caption: {e2}")
         else:
-            logger.error(f"Failed to edit text: {e}")
+            if "DOCUMENT_INVALID" in str(e):
+                logger.warning(f"Failed to edit text (DOCUMENT_INVALID): {e}")
+                return False
+            logger.warning(f"Failed to edit text: {e}")
+    return False
 
 async def render_screen(
     event: Union[Message, CallbackQuery],
@@ -58,12 +68,12 @@ async def render_screen(
         text = f"⚠️ Screen configuration missing: <code>{screen_key}</code>"
         try:
             if isinstance(event, CallbackQuery) and isinstance(message, Message):
-                await safe_edit(message, text, reply_markup=keyboard)
+                if not await safe_edit(message, text, reply_markup=keyboard):
+                    await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
             else:
                 await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
-        except TelegramBadRequest as e:
-            if "message is not modified" not in str(e):
-                logger.error(f"Error rendering missing screen: {e}")
+        except Exception as e:
+            logger.error(f"Error rendering missing screen: {e}")
         return
 
     try:
@@ -75,6 +85,7 @@ async def render_screen(
         if not isinstance(message, Message):
             return
         
+        edit_success = False
         try:
             if screen.image_url:
                 try:
@@ -82,39 +93,46 @@ async def render_screen(
                         InputMediaPhoto(media=screen.image_url, caption=text, parse_mode="HTML"),
                         reply_markup=keyboard,
                     )
-                    return
+                    edit_success = True
                 except TelegramBadRequest as e:
-                    # If edit_media fails (e.g. current message has no media or same media)
                     if "message is not modified" in str(e):
                         return
-                    # If it's not a media message, we'll fall through to edit_text/edit_caption
+                    # If edit_media fails, we'll try safe_edit below
+                    logger.debug(f"edit_media failed, falling back to safe_edit: {e}")
             
-            # Try to edit text or caption
-            await safe_edit(message, text, reply_markup=keyboard)
-        except TelegramBadRequest as e:
-            if "message is not modified" not in str(e):
-                logger.error(f"Error in callback render: {e}")
+            if not edit_success:
+                edit_success = await safe_edit(message, text, reply_markup=keyboard)
+            
+            if edit_success:
+                return
         except Exception as e:
-            logger.error(f"Unexpected error in callback render: {e}")
-        return
+            logger.warning(f"Edit failed in callback render, will try to send new message: {e}")
 
-    # For Message events (like /start)
-    if screen.image_url:
+        # If editing failed (e.g. DOCUMENT_INVALID, or message too old), send a new message
         try:
+            # Try to delete old message to keep chat clean
+            await message.delete()
+        except Exception:
+            pass
+
+        # Fall through to sending a new message
+    
+    # Send as a new message (used for non-callbacks or as fallback)
+    try:
+        if screen.image_url:
             await message.answer_photo(
                 photo=screen.image_url,
                 caption=text,
                 reply_markup=keyboard,
                 parse_mode="HTML",
             )
-            return
-        except Exception as e:
-            logger.error(f"Error sending photo {screen.image_url}: {e}")
-            # Fallback to text message if photo fails
-    
-    await message.answer(
-        text=text,
-        reply_markup=keyboard,
-        parse_mode="HTML",
-        disable_web_page_preview=True,
-    )
+        else:
+            await message.answer(
+                text=text,
+                reply_markup=keyboard,
+                parse_mode="HTML",
+                disable_web_page_preview=True,
+            )
+    except Exception as e:
+        logger.error(f"Error sending message in render_screen: {e}")
+
