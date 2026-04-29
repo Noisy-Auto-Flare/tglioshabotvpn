@@ -94,9 +94,31 @@ async def cryptobot_webhook(request: Request, db: AsyncSession = Depends(get_db)
         invoice = data.get("payload")
         external_id = str(invoice.get("invoice_id"))
         
+        # Если бот находится на другом сервере, пересылаем по HTTP
+        if settings.INTERNAL_WEBHOOK_URL:
+            try:
+                async with httpx.AsyncClient(timeout=30) as client:
+                    resp = await client.post(
+                    settings.INTERNAL_WEBHOOK_URL,
+                    json={
+                        "external_id": external_id, 
+                        "status": "CONFIRMED",
+                        "provider": "cryptobot"
+                    },
+                    headers={"X-Internal-Token": settings.INTERNAL_WEBHOOK_SECRET}
+                )
+                    resp.raise_for_status()
+                    logger.info(f"Forwarded CryptoBot webhook to bot: {resp.status_code}")
+                    return {"ok": True, "forwarded": True}
+            except Exception as e:
+                logger.error(f"Failed to forward CryptoBot webhook: {e}")
+                raise HTTPException(status_code=500, detail="Failed to forward to bot")
+
+        # Локальная обработка
         payment_service = PaymentService(db)
         success = await payment_service.process_success(external_id)
         return {"ok": success}
+    
     return {"ok": True}
 
 @app.post("/api/v1/payments/cryptomus/webhook")
@@ -109,6 +131,27 @@ async def cryptomus_webhook(request: Request, db: AsyncSession = Depends(get_db)
     external_id = data.get("uuid") # Cryptomus uuid for the transaction
     
     if status in ["paid", "paid_over"]:
+        # Если бот находится на другом сервере, пересылаем по HTTP
+        if settings.INTERNAL_WEBHOOK_URL:
+            try:
+                async with httpx.AsyncClient(timeout=30) as client:
+                    resp = await client.post(
+                    settings.INTERNAL_WEBHOOK_URL,
+                    json={
+                        "external_id": str(external_id), 
+                        "status": "CONFIRMED",
+                        "provider": "cryptomus"
+                    },
+                    headers={"X-Internal-Token": settings.INTERNAL_WEBHOOK_SECRET}
+                )
+                    resp.raise_for_status()
+                    logger.info(f"Forwarded Cryptomus webhook to bot: {resp.status_code}")
+                    return {"ok": True, "forwarded": True}
+            except Exception as e:
+                logger.error(f"Failed to forward Cryptomus webhook: {e}")
+                raise HTTPException(status_code=500, detail="Failed to forward to bot")
+
+        # Локальная обработка
         payment_service = PaymentService(db)
         await payment_service.process_success(str(external_id))
     
@@ -140,7 +183,11 @@ async def platega_webhook(request: Request, db: AsyncSession = Depends(get_db)):
             async with httpx.AsyncClient(timeout=30) as client:
                 resp = await client.post(
                     settings.INTERNAL_WEBHOOK_URL,
-                    json={"external_id": order_id, "status": status},
+                    json={
+                        "external_id": order_id, 
+                        "status": status,
+                        "provider": "platega"
+                    },
                     headers={"X-Internal-Token": settings.INTERNAL_WEBHOOK_SECRET}
                 )
                 resp.raise_for_status()

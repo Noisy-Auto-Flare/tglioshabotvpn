@@ -25,11 +25,12 @@ async def handle_platega_webhook(request: web.Request):
 
     external_id = data.get("external_id")
     status = data.get("status")
+    provider = data.get("provider", "unknown")
 
     if not external_id or not status:
         return web.json_response({"error": "missing fields"}, status=400)
 
-    logger.info(f"Internal webhook: {external_id} -> {status}")
+    logger.info(f"Internal webhook from {provider}: {external_id} -> {status}")
 
     # 3. Выполняем бизнес-логику бота
     async with AsyncSessionLocal() as db:
