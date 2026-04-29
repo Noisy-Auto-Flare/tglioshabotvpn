@@ -19,23 +19,25 @@ class PlategaService:
             logger.error("Platega credentials not configured")
             return None
 
-        # Trying /transaction as /transaction/process returns 400 "process is not valid id"
-        url = f"{self.base_url}/transaction"
+        # Согласно документации docs.platega.io:
+        # POST /transaction/process
+        url = f"{self.base_url}/transaction/process"
         headers = {
             "X-MerchantId": self.merchant_id,
             "X-Secret": self.secret,
             "Content-Type": "application/json"
         }
         
-        # Official docs say paymentDetails object is required
+        # Обязательные поля согласно Request Request Example в документации:
+        # paymentMethod, paymentDetails (amount, currency), description
         payload = {
-            "paymentMethod": 2,
+            "paymentMethod": 2, # 2 для СБП (QR-код)
             "paymentDetails": {
                 "amount": float(amount),
                 "currency": "RUB"
             },
             "description": f"Оплата подписки (Заказ {order_id})",
-            "payload": order_id
+            "payload": order_id # Передаем ID заказа в payload для callback
         }
 
         try:
@@ -47,12 +49,9 @@ class PlategaService:
                 
                 data = response.json()
                 
-                # Based on typical Platega response
-                if data.get("status") == "error":
-                    logger.error(f"Platega error: {data.get('message')}")
-                    return None
-                
-                return data.get("paymentUrl") or data.get("url")
+                # В ответе согласно docs.platega.io:
+                # transactionId, redirect, status и т.д.
+                return data.get("redirect")
         except Exception as e:
             logger.error(f"Failed to create Platega payment: {e}")
             return None
