@@ -9,7 +9,8 @@ class PlategaService:
     def __init__(self, merchant_id: Optional[str], secret: Optional[str]):
         self.merchant_id = merchant_id
         self.secret = secret
-        self.base_url = "https://app.platega.io"
+        # Base URL might need /api prefix based on common routing errors
+        self.base_url = "https://app.platega.io/api"
 
     async def create_payment(self, amount: float, order_id: str) -> Optional[str]:
         """
@@ -26,18 +27,25 @@ class PlategaService:
             "Content-Type": "application/json"
         }
         
-        # paymentMethod 2 is usually SBP in Platega
+        # Correct payload structure based on official docs
+        # Note: orderId is not in the request docs, so we use 'payload' to store it
         payload = {
             "paymentMethod": 2,
-            "amount": amount,
-            "orderId": order_id,
-            "description": f"Payment for order {order_id}"
+            "paymentDetails": {
+                "amount": float(amount),
+                "currency": "RUB"
+            },
+            "description": f"Оплата подписки (Заказ {order_id})",
+            "payload": order_id
         }
 
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.post(url, headers=headers, json=payload, timeout=10.0)
-                response.raise_for_status()
+                if response.status_code != 200:
+                    logger.error(f"Platega API error {response.status_code}: {response.text}")
+                    return None
+                
                 data = response.json()
                 
                 # Based on typical Platega response

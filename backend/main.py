@@ -127,7 +127,7 @@ async def platega_webhook(request: Request, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Invalid signature/headers")
     
     status = data.get("status")
-    order_id = data.get("orderId")
+    order_id = data.get("payload") # We stored order_id in the payload field
     
     if status == "CONFIRMED" and order_id:
         payment_service = PaymentService(db)
