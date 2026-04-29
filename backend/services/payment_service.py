@@ -45,11 +45,20 @@ class PaymentService:
         # Update payment status
         payment.status = PaymentStatus.SUCCESS
         
-        # Activate subscription
+        # Get user
         user_stmt = select(User).where(User.id == payment.user_id)
         user_result = await self.db.execute(user_stmt)
         user = user_result.scalar_one()
 
+        # Handle Balance Deposit
+        if payment.payload and payment.payload.startswith("dep_"):
+            amount_to_add = payment.amount
+            user.balance += amount_to_add
+            await self.db.commit()
+            logger.info(f"Balance deposit of {amount_to_add} RUB processed for user {user.telegram_id}")
+            return True
+
+        # Activate subscription (existing logic)
         plan_id = payment.payload or "30" # Fallback to 30 days
         plan_days = int(plan_id)
         plan_config = settings.PLANS.get(plan_id, {"gb": 300})

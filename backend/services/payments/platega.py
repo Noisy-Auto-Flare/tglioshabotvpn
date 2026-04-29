@@ -9,8 +9,7 @@ class PlategaService:
     def __init__(self, merchant_id: Optional[str], secret: Optional[str]):
         self.merchant_id = merchant_id
         self.secret = secret
-        # Base URL might need /api prefix based on common routing errors
-        self.base_url = "https://app.platega.io/api"
+        self.base_url = "https://app.platega.io"
 
     async def create_payment(self, amount: float, order_id: str) -> Optional[str]:
         """
@@ -20,15 +19,15 @@ class PlategaService:
             logger.error("Platega credentials not configured")
             return None
 
-        url = f"{self.base_url}/transaction/process"
+        # Trying /transaction as /transaction/process returns 400 "process is not valid id"
+        url = f"{self.base_url}/transaction"
         headers = {
             "X-MerchantId": self.merchant_id,
             "X-Secret": self.secret,
             "Content-Type": "application/json"
         }
         
-        # Correct payload structure based on official docs
-        # Note: orderId is not in the request docs, so we use 'payload' to store it
+        # Official docs say paymentDetails object is required
         payload = {
             "paymentMethod": 2,
             "paymentDetails": {

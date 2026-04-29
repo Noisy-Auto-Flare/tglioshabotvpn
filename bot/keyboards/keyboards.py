@@ -41,12 +41,20 @@ def get_payment_methods(plan_id: str) -> InlineKeyboardMarkup:
 
 def get_deposit_methods() -> InlineKeyboardMarkup:
     keyboard = [
-        [InlineKeyboardButton(icon_custom_emoji_id="5240368741211980660", text="СБП (рубли)", callback_data="dep_sbp", style="danger")],
-        [InlineKeyboardButton(icon_custom_emoji_id="5397597950501204351", text="CryptoBot", callback_data="dep_cryptobot")],
-        [InlineKeyboardButton(icon_custom_emoji_id="5345837435601305335", text="CryptoMus", callback_data="dep_cryptomus")],
-        [InlineKeyboardButton(icon_custom_emoji_id="5438496463044752972", text="Telegram Stars", callback_data="dep_stars")],
-        [InlineKeyboardButton(icon_custom_emoji_id="5377620962390857342", text="TON Connect", callback_data="dep_ton")],
+        [InlineKeyboardButton(text="100₽", callback_data="dep_amt_100"), InlineKeyboardButton(text="500₽", callback_data="dep_amt_500")],
+        [InlineKeyboardButton(text="1000₽", callback_data="dep_amt_1000"), InlineKeyboardButton(text="2500₽", callback_data="dep_amt_2500")],
         [InlineKeyboardButton(icon_custom_emoji_id="5258236805890710909", text="Назад", callback_data="profile_main")]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+def get_deposit_payment_methods(amount: int) -> InlineKeyboardMarkup:
+    keyboard = [
+        [InlineKeyboardButton(icon_custom_emoji_id="5240368741211980660", text="СБП (рубли)", callback_data=f"dep_sbp_{amount}", style="danger")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5397597950501204351", text="CryptoBot", callback_data=f"dep_cryptobot_{amount}")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5345837435601305335", text="CryptoMus", callback_data=f"dep_cryptomus_{amount}")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5438496463044752972", text="Telegram Stars", callback_data=f"dep_stars_{amount}")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5377620962390857342", text="TON Connect", callback_data=f"dep_ton_{amount}")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5258236805890710909", text="Назад", callback_data="deposit_menu")]
     ]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 

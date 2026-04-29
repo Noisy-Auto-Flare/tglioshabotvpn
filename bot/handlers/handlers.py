@@ -39,6 +39,7 @@ from bot.keyboards.keyboards import (
     get_info_menu_keyboard,
     get_back_to_main,
     get_deposit_methods,
+    get_deposit_payment_methods,
     get_reset_key_confirm_keyboard,
     get_sub_management_keyboard,
     get_my_subscriptions_keyboard,
@@ -548,6 +549,200 @@ async def open_statistics(callback: CallbackQuery, db: AsyncSession):
 @router.callback_query(F.data == "deposit_menu")
 async def open_deposit_menu(callback: CallbackQuery, db: AsyncSession):
     await render_screen(callback, db, "deposit_menu", keyboard=get_deposit_methods())
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("dep_amt_"))
+async def process_dep_amount(callback: CallbackQuery, db: AsyncSession):
+    if not callback.data: return
+    amount = int(callback.data.split("_")[-1])
+    await render_screen(
+        callback, db, "payment", 
+        keyboard=get_deposit_payment_methods(amount),
+        plan_label="Пополнение баланса",
+        price=amount
+    )
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("dep_sbp_"))
+async def process_dep_sbp(callback: CallbackQuery, db: AsyncSession):
+    if not callback.data or not callback.message: return
+    amount = int(callback.data.split("_")[-1])
+    user = await _get_user_by_tg(db, callback.from_user.id)
+    if not user: return
+
+    payment_service = PaymentService(db)
+    payment = await payment_service.create_payment(
+        user_id=user.id,
+        tariff_id=f"dep_{amount}",
+        provider="sbp",
+        amount=amount
+    )
+    
+    pay_url = await platega_service.create_payment(
+        amount=amount,
+        order_id=str(payment.id)
+    )
+    
+    if not pay_url:
+        await callback.answer("❌ Ошибка Platega. Попробуйте позже.", show_alert=True)
+        return
+
+    payment.external_id = str(payment.id)
+    await db.commit()
+
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Оплатить через СБП", url=pay_url)],
+        [InlineKeyboardButton(text="Проверить оплату", callback_data=f"check_pay_{payment.id}")],
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data=f"dep_amt_{amount}")]
+    ])
+    
+    text = (
+        f"🚀 <b>Пополнение баланса через СБП</b>\n\n"
+        f"Сумма: <b>{amount} RUB</b>\n\n"
+        f"Нажмите кнопку ниже для оплаты. После завершения нажмите «Проверить оплату»."
+    )
+    if isinstance(callback.message, Message):
+        await safe_edit(callback.message, text, reply_markup=keyboard)
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("dep_cryptobot_"))
+async def process_dep_cryptobot(callback: CallbackQuery, db: AsyncSession):
+    if not callback.data or not callback.message: return
+    amount = int(callback.data.split("_")[-1])
+    user = await _get_user_by_tg(db, callback.from_user.id)
+    if not user: return
+
+    amount_usd = float(amount) / settings.USD_RUB_RATE
+    invoice = await cryptobot_service.create_invoice(
+        amount=amount_usd,
+        payload=f"{user.id}:dep_{amount}",
+        currency="USD"
+    )
+    
+    if not invoice:
+        await callback.answer("❌ Ошибка CryptoBot.", show_alert=True)
+        return
+
+    payment_service = PaymentService(db)
+    await payment_service.create_payment(
+        user_id=user.id,
+        tariff_id=f"dep_{amount}",
+        provider="cryptobot",
+        amount=amount,
+        external_id=str(invoice["invoice_id"])
+    )
+    
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="💳 Оплатить", url=invoice["pay_url"])],
+        [InlineKeyboardButton(text="🔄 Проверить оплату", callback_data=f"check_pay_{invoice['invoice_id']}")],
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data=f"dep_amt_{amount}")]
+    ])
+    
+    if isinstance(callback.message, Message):
+        await safe_edit(
+            callback.message,
+            f"🔗 <b>Пополнение через CryptoBot</b>\n\nСумма: {amount_usd:.2f} USD ({amount} RUB)\n\nНажмите кнопку ниже:",
+            reply_markup=keyboard
+        )
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("dep_cryptomus_"))
+async def process_dep_cryptomus(callback: CallbackQuery, db: AsyncSession):
+    if not callback.data or not callback.message: return
+    amount = int(callback.data.split("_")[-1])
+    user = await _get_user_by_tg(db, callback.from_user.id)
+    if not user: return
+
+    payment_service = PaymentService(db)
+    order_id = f"dep_{user.id}_{int(datetime.now().timestamp())}"
+    
+    invoice = await cryptomus_service.create_invoice(
+        amount=float(amount),
+        order_id=order_id
+    )
+    
+    if not invoice:
+        await callback.answer("❌ Ошибка CryptoMus.", show_alert=True)
+        return
+
+    await payment_service.create_payment(
+        user_id=user.id,
+        tariff_id=f"dep_{amount}",
+        provider="cryptomus",
+        amount=amount,
+        external_id=invoice["uuid"]
+    )
+    
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="💳 Оплатить", url=invoice["url"])],
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data=f"dep_amt_{amount}")]
+    ])
+    
+    if isinstance(callback.message, Message):
+        await safe_edit(
+            callback.message,
+            f"🔗 <b>Пополнение через CryptoMus</b>\n\nСумма: {amount} RUB\n\nНажмите кнопку ниже:",
+            reply_markup=keyboard
+        )
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("dep_stars_"))
+async def process_dep_stars(callback: CallbackQuery, db: AsyncSession):
+    if not callback.data or not callback.message: return
+    amount = int(callback.data.split("_")[-1])
+    user = await _get_user_by_tg(db, callback.from_user.id)
+    if not user: return
+
+    if isinstance(callback.message, Message):
+        await callback.message.answer_invoice(
+            title="Пополнение баланса",
+            description=f"Пополнение на {amount} RUB",
+            payload=f"stars_{user.id}_dep_{amount}",
+            provider_token="",
+            currency="XTR",
+            prices=[LabeledPrice(label="Пополнение", amount=amount)]
+        )
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("dep_ton_"))
+async def process_dep_ton(callback: CallbackQuery, db: AsyncSession):
+    if not callback.data or not callback.message: return
+    amount = int(callback.data.split("_")[-1])
+    user = await _get_user_by_tg(db, callback.from_user.id)
+    if not user: return
+
+    payment_service = PaymentService(db)
+    payment = await payment_service.create_payment(
+        user_id=user.id,
+        tariff_id=f"dep_{amount}",
+        provider="ton",
+        amount=amount
+    )
+    
+    ton_info = await ton_service.create_invoice(amount, str(payment.id))
+    pay_url = ton_info["pay_url"]
+    ton_amount = ton_info.get("ton_amount", "...")
+    
+    payment.external_id = str(payment.id)
+    await db.commit()
+
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Открыть TON Кошелек", url=pay_url)],
+        [InlineKeyboardButton(text="Проверить оплату", callback_data=f"check_pay_{payment.id}")],
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data=f"dep_amt_{amount}")]
+    ])
+    
+    text = (
+        f"💎 <b>Пополнение через TON Connect</b>\n\n"
+        f"Сумма: <b>{ton_amount} TON</b> ({amount} RUB)\n"
+        f"Комментарий (ОБЯЗАТЕЛЬНО): <code>{payment.id}</code>\n"
+    )
+    if isinstance(callback.message, Message):
+        await safe_edit(callback.message, text, reply_markup=keyboard)
     await callback.answer()
 
 @router.callback_query(F.data == "info_menu")
