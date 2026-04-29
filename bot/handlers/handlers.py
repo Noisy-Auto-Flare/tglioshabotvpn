@@ -6,6 +6,8 @@ from typing import Optional, Union
 
 from aiogram import F, Router
 from aiogram.filters import CommandStart
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message, LabeledPrice, PreCheckoutQuery
 from backend.services.payment_service import PaymentService
 from backend.services.payments.cryptobot import cryptobot_service
@@ -45,6 +47,9 @@ from bot.keyboards.keyboards import (
     get_my_subscriptions_keyboard,
 )
 from bot.services.renderer import render_screen, safe_edit
+
+class DepositStates(StatesGroup):
+    waiting_for_amount = State()
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -547,9 +552,44 @@ async def open_statistics(callback: CallbackQuery, db: AsyncSession):
     await callback.answer()
 
 @router.callback_query(F.data == "deposit_menu")
-async def open_deposit_menu(callback: CallbackQuery, db: AsyncSession):
+async def open_deposit_menu(callback: CallbackQuery, db: AsyncSession, state: FSMContext):
+    await state.clear()
     await render_screen(callback, db, "deposit_menu", keyboard=get_deposit_methods())
     await callback.answer()
+
+@router.callback_query(F.data == "dep_custom_amt")
+async def process_custom_amount_start(callback: CallbackQuery, db: AsyncSession, state: FSMContext):
+    await state.set_state(DepositStates.waiting_for_amount)
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⬅️ Отмена", callback_data="deposit_menu")]
+    ])
+    if isinstance(callback.message, Message):
+        await safe_edit(
+            callback.message,
+            "<b>💰 Пополнение на произвольную сумму</b>\n\nВведите сумму пополнения (целое число от 10 до 50000):",
+            reply_markup=keyboard
+        )
+    await callback.answer()
+
+@router.message(DepositStates.waiting_for_amount)
+async def process_custom_amount_input(message: Message, db: AsyncSession, state: FSMContext):
+    if not message.text or not message.text.isdigit():
+        await message.answer("❌ Пожалуйста, введите корректное число.")
+        return
+    
+    amount = int(message.text)
+    if amount < 10 or amount > 50000:
+        await message.answer("❌ Сумма должна быть от 10 до 50 000 руб.")
+        return
+    
+    await state.clear()
+    await render_screen(
+        message, db, "payment", 
+        keyboard=get_deposit_payment_methods(amount),
+        plan_label="Пополнение баланса",
+        price=amount
+    )
 
 @router.callback_query(F.data.startswith("dep_amt_"))
 async def process_dep_amount(callback: CallbackQuery, db: AsyncSession):

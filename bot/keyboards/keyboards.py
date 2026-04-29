@@ -43,6 +43,7 @@ def get_deposit_methods() -> InlineKeyboardMarkup:
     keyboard = [
         [InlineKeyboardButton(text="100₽", callback_data="dep_amt_100"), InlineKeyboardButton(text="500₽", callback_data="dep_amt_500")],
         [InlineKeyboardButton(text="1000₽", callback_data="dep_amt_1000"), InlineKeyboardButton(text="2500₽", callback_data="dep_amt_2500")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5431616900201201900", text="Своя сумма", callback_data="dep_custom_amt")],
         [InlineKeyboardButton(icon_custom_emoji_id="5258236805890710909", text="Назад", callback_data="profile_main")]
     ]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
