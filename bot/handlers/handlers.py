@@ -10,7 +10,7 @@ from aiogram.types import CallbackQuery, Message, LabeledPrice, PreCheckoutQuery
 from backend.services.payment_service import PaymentService
 from backend.services.payments.cryptobot import cryptobot_service
 from backend.services.payments.cryptomus import cryptomus_service
-from backend.services.payments.freekassa import freekassa_service
+from backend.services.payments.platega import platega_service
 from backend.services.payments.abstract import ton_service
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -727,12 +727,16 @@ async def process_pay_sbp(callback: CallbackQuery, db: AsyncSession):
         amount=amount
     )
     
-    # Generate FreeKassa URL
-    pay_url = freekassa_service.generate_payment_url(
+    # Generate Platega URL
+    pay_url = await platega_service.create_payment(
         amount=amount,
         order_id=str(payment.id)
     )
     
+    if not pay_url:
+        await callback.answer("❌ Ошибка платежной системы. Попробуйте позже.", show_alert=True)
+        return
+
     # Update payment with external_id
     payment.external_id = str(payment.id)
     await db.commit()
@@ -745,7 +749,7 @@ async def process_pay_sbp(callback: CallbackQuery, db: AsyncSession):
     ])
     
     text = (
-        f"🚀 <b>Оплата через СБП (FreeKassa)</b>\n\n"
+        f"🚀 <b>Оплата через СБП (Platega)</b>\n\n"
         f"Тариф: {plan['label']}\n"
         f"К оплате: <b>{amount} RUB</b>\n\n"
         f"Нажмите кнопку ниже, чтобы перейти к оплате. "

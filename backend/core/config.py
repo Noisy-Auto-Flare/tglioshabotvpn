@@ -37,10 +37,9 @@ class Settings(BaseSettings):
     USE_WEBHOOK: bool = True
     WEBHOOK_URL: Optional[str] = None
     
-    # FreeKassa (SBP)
-    FREEKASSA_MERCHANT_ID: Optional[str] = None
-    FREEKASSA_SECRET_1: Optional[str] = None
-    FREEKASSA_SECRET_2: Optional[str] = None
+    # Platega
+    PLATEGA_MERCHANT_ID: Optional[str] = None
+    PLATEGA_SECRET: Optional[str] = None
 
     # CryptoMus
     CRYPTOMUS_API_KEY: Optional[str] = None

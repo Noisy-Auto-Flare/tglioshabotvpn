@@ -11,8 +11,9 @@
 - **🧭 Full Inline UI**: Навигация как в приложении: только `InlineKeyboard`, переходы через `callback_data`, редактирование одного сообщения.
 - **� Поддержка Premium Emoji**: Весь интерфейс и рассылки поддерживают анимированные премиум-эмодзи.
 - **�💳 Автоматическая оплата**: 
+  - **Platega**: СБП (основной метод) с автоматическим подтверждением.
   - **CryptoBot**: USDT, TON, BTC и др.
-  - **FreeKassa**: СБП (основной метод), Карты, Электронные кошельки.
+  - **FreeKassa**: Карты, Электронные кошельки.
   - **CryptoMus**: Криптовалюты с поддержкой вебхуков.
   - **Telegram Stars**: Внутренняя валюта Telegram.
   - **TON Connect**: Прямые платежи в сети TON с проверкой по комментарию.
@@ -44,7 +45,11 @@
 - `REMNAWAVE_DEFAULT_SQUAD_UUID`: ID группы (Squad), в которую будут добавляться новые пользователи.
 
 ### 💳 Платежные шлюзы
-Поддерживаются FreeKassa (СБП), CryptoBot, CryptoMus, Telegram Stars и TON Connect. Настройка каждого шлюза описана в `.env.example`.
+Поддерживаются Platega (СБП), CryptoBot, CryptoMus, Telegram Stars и TON Connect. Настройка каждого шлюза описана в `.env.example`. 
+
+**Важно для Platega:**
+Для автоматического подтверждения платежей через Platega, укажите в личном кабинете Platega следующий Callback URL:
+`https://ваш-домен.com/api/v1/payments/platega/webhook`
 
 ---
 

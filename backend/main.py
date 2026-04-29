@@ -13,7 +13,7 @@ from backend.services.init_db import init_screens
 from backend.services.payment_service import PaymentService
 from backend.services.payments.cryptobot import cryptobot_service
 from backend.services.payments.cryptomus import cryptomus_service
-from backend.services.payments.freekassa import freekassa_service
+from backend.services.payments.platega import platega_service
 
 # ... (other code)
 
@@ -117,24 +117,26 @@ async def cryptomus_webhook(request: Request, db: AsyncSession = Depends(get_db)
 async def health_check():
     return {"status": "healthy"}
 
-@app.post("/api/v1/payments/freekassa/webhook")
-async def freekassa_webhook(request: Request, db: AsyncSession = Depends(get_db)):
-    # FreeKassa sends data as form-data or query params
-    form_data = await request.form()
-    data = dict(form_data)
-    if not data:
-        data = dict(request.query_params)
-        
-    if not freekassa_service.verify_webhook(data):
-        logger.warning(f"Invalid FreeKassa signature: {data}")
-        raise HTTPException(status_code=400, detail="Invalid signature")
+@app.post("/api/v1/payments/platega/webhook")
+async def platega_webhook(request: Request, db: AsyncSession = Depends(get_db)):
+    data = await request.json()
+    headers = dict(request.headers)
     
-    order_id = data.get("MERCHANT_ORDER_ID")
-    if order_id:
+    if not platega_service.verify_webhook(data, headers):
+        logger.warning(f"Invalid Platega webhook headers: {headers}")
+        raise HTTPException(status_code=400, detail="Invalid signature/headers")
+    
+    status = data.get("status")
+    order_id = data.get("orderId")
+    
+    if status == "CONFIRMED" and order_id:
         payment_service = PaymentService(db)
         await payment_service.process_success(str(order_id))
-        
-    return "YES"
+        logger.info(f"Platega payment confirmed for order {order_id}")
+    elif status == "CANCELED":
+        logger.info(f"Platega payment canceled for order {order_id}")
+    
+    return {"ok": True}
 
 @app.get("/debug/vpn/{user_id}")
 async def debug_vpn(user_id: int, db: AsyncSession = Depends(get_db)):
