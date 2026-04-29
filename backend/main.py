@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import httpx
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, Request, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -129,10 +130,31 @@ async def platega_webhook(request: Request, db: AsyncSession = Depends(get_db)):
     status = data.get("status")
     order_id = data.get("payload") # We stored order_id in the payload field
     
-    if status == "CONFIRMED" and order_id:
+    if not order_id or not status:
+        logger.error(f"Missing payload/status in Platega webhook: {data}")
+        return {"ok": False, "error": "missing fields"}
+
+    # Если бот находится на другом сервере, пересылаем вебхук по HTTP
+    if settings.INTERNAL_WEBHOOK_URL:
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.post(
+                    settings.INTERNAL_WEBHOOK_URL,
+                    json={"external_id": order_id, "status": status},
+                    headers={"X-Internal-Token": settings.INTERNAL_WEBHOOK_SECRET}
+                )
+                resp.raise_for_status()
+                logger.info(f"Forwarded Platega webhook to bot: {resp.status_code}")
+                return {"ok": True, "forwarded": True}
+        except Exception as e:
+            logger.error(f"Failed to forward webhook to bot: {e}")
+            raise HTTPException(status_code=500, detail="Failed to forward to bot")
+    
+    # Если на этом же сервере, обрабатываем локально
+    if status == "CONFIRMED":
         payment_service = PaymentService(db)
         await payment_service.process_success(str(order_id))
-        logger.info(f"Platega payment confirmed for order {order_id}")
+        logger.info(f"Platega payment confirmed locally for order {order_id}")
     elif status == "CANCELED":
         logger.info(f"Platega payment canceled for order {order_id}")
     

@@ -40,6 +40,12 @@ class Settings(BaseSettings):
     # Platega
     PLATEGA_MERCHANT_ID: Optional[str] = None
     PLATEGA_SECRET: Optional[str] = None
+    
+    # Internal Webhook Settings
+    INTERNAL_WEBHOOK_URL: Optional[str] = None
+    INTERNAL_WEBHOOK_SECRET: str = "change-me"
+    INTERNAL_HOST: str = "0.0.0.0"
+    INTERNAL_PORT: int = 9000
 
     # CryptoMus
     CRYPTOMUS_API_KEY: Optional[str] = None

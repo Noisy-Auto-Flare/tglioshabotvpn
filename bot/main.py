@@ -12,6 +12,7 @@ import backend.models.models
 from bot.handlers.handlers import router, _check_channel_sub
 from backend.services.init_db import init_screens
 from bot.services.renderer import render_screen
+from bot.webhook_server import run_internal_server
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 
 logging.basicConfig(level=logging.INFO)
@@ -90,6 +91,9 @@ async def main():
     
     # Register routers
     dp.include_router(router)
+    
+    # Start internal webhook server for multi-server setup
+    asyncio.create_task(run_internal_server())
     
     logger.info("Starting bot polling...")
     await dp.start_polling(bot)
