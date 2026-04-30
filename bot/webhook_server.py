@@ -1,6 +1,7 @@
 import json
 import logging
 from aiohttp import web
+from aiogram import Bot
 from backend.services.payment_service import PaymentService
 from db.session import AsyncSessionLocal
 from backend.core.config import settings
@@ -11,6 +12,7 @@ logger = logging.getLogger(__name__)
 INTERNAL_SECRET = settings.INTERNAL_WEBHOOK_SECRET
 
 async def handle_platega_webhook(request: web.Request):
+    bot: Bot = request.app["bot"]
     # 1. Проверяем авторизацию
     token = request.headers.get("X-Internal-Token")
     if not token or token != INTERNAL_SECRET:
@@ -38,8 +40,28 @@ async def handle_platega_webhook(request: web.Request):
 
         try:
             if status == "CONFIRMED":
-                success = await payment_service.process_success(external_id)
-                if success:
+                result = await payment_service.process_success(external_id)
+                if result:
+                    user_id = result["user_id"]
+                    msg_type = result["type"]
+                    
+                    try:
+                        if msg_type == "deposit":
+                            amount = result["amount"]
+                            await bot.send_message(
+                                user_id, 
+                                f"✅ <b>Баланс пополнен!</b>\n\nСумма: <b>{amount} RUB</b>\nСпасибо за оплату!"
+                            )
+                        else:
+                            plan_label = result["plan_label"]
+                            await bot.send_message(
+                                user_id, 
+                                f"✅ <b>Оплата получена!</b>\n\nТариф: <b>{plan_label}</b>\nВаша подписка активирована. Приятного пользования!"
+                            )
+                        logger.info(f"Sent confirmation message to user {user_id}")
+                    except Exception as bot_err:
+                        logger.error(f"Failed to send bot message to user {user_id}: {bot_err}")
+
                     logger.info(f"Subscription activated for {external_id}")
                     return web.json_response({"result": "success"})
                 else:
@@ -57,8 +79,9 @@ async def handle_platega_webhook(request: web.Request):
             logger.exception(f"Error processing {external_id}: {e}")
             return web.json_response({"error": "internal_error"}, status=500)
 
-async def run_internal_server():
+async def run_internal_server(bot: Bot):
     app = web.Application()
+    app["bot"] = bot
     app.router.add_post("/internal/platega-webhook", handle_platega_webhook)
     
     host = settings.INTERNAL_HOST
@@ -74,6 +97,9 @@ async def run_internal_server():
 if __name__ == "__main__":
     # Для запуска как отдельного процесса
     logging.basicConfig(level=logging.INFO)
+    bot_token = settings.BOT_TOKEN
+    bot = Bot(token=bot_token)
     app = web.Application()
+    app["bot"] = bot
     app.router.add_post("/internal/platega-webhook", handle_platega_webhook)
     web.run_app(app, host=settings.INTERNAL_HOST, port=settings.INTERNAL_PORT)

@@ -93,7 +93,7 @@ async def main():
     dp.include_router(router)
     
     # Start internal webhook server for multi-server setup
-    asyncio.create_task(run_internal_server())
+    asyncio.create_task(run_internal_server(bot))
     
     logger.info("Starting bot polling...")
     await dp.start_polling(bot)

@@ -29,18 +29,18 @@ class PaymentService:
         await self.db.refresh(payment)
         return payment
 
-    async def process_success(self, external_id: str) -> bool:
+    async def process_success(self, external_id: str) -> Optional[dict]:
         stmt = select(Payment).where(Payment.external_id == external_id)
         result = await self.db.execute(stmt)
         payment = result.scalar_one_or_none()
 
         if not payment:
             logger.error(f"Payment with external_id {external_id} not found")
-            return False
+            return None
 
         if payment.status == PaymentStatus.SUCCESS:
             logger.info(f"Payment {external_id} already processed")
-            return True
+            return None
 
         # Update payment status
         payment.status = PaymentStatus.SUCCESS
@@ -56,7 +56,11 @@ class PaymentService:
             user.balance += amount_to_add
             await self.db.commit()
             logger.info(f"Balance deposit of {amount_to_add} RUB processed for user {user.telegram_id}")
-            return True
+            return {
+                "user_id": user.telegram_id,
+                "type": "deposit",
+                "amount": amount_to_add
+            }
 
         # Activate subscription (existing logic)
         plan_id = payment.payload or "30" # Fallback to 30 days
@@ -113,7 +117,11 @@ class PaymentService:
 
         await self.db.commit()
         logger.info(f"Payment {external_id} processed successfully for user {user.telegram_id}")
-        return True
+        return {
+            "user_id": user.telegram_id,
+            "type": "subscription",
+            "plan_label": plan_config.get("label", f"{plan_days} дней")
+        }
 
     async def fail_payment(self, external_id: str):
         stmt = select(Payment).where(Payment.external_id == external_id)

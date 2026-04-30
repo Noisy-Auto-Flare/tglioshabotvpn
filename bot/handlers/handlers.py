@@ -1100,9 +1100,15 @@ async def process_check_pay(callback: CallbackQuery, db: AsyncSession):
     if payment.status == PaymentStatus.SUCCESS:
          from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
          if isinstance(callback.message, Message):
+             text = "✅ <b>Оплата получена!</b>\n\n"
+             if payment.payload and payment.payload.startswith("dep_"):
+                 text += f"Ваш баланс пополнен на <b>{payment.amount} RUB</b>."
+             else:
+                 text += "Ваша подписка активирована. Перейдите в профиль, чтобы получить ключ."
+                 
              await safe_edit(
                  callback.message,
-                 "✅ <b>Оплата получена!</b>\n\nВаша подписка активирована. Перейдите в профиль, чтобы получить ключ.",
+                 text,
                  reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                      [InlineKeyboardButton(text="👤 Профиль", callback_data="profile_main")],
                      [InlineKeyboardButton(text="🏠 Меню", callback_data="main_menu")]
@@ -1114,12 +1120,18 @@ async def process_check_pay(callback: CallbackQuery, db: AsyncSession):
             is_paid = await ton_service.check_transaction(str(payment.id))
             if is_paid:
                 payment_service = PaymentService(db)
-                await payment_service.process_success(str(payment.id))
+                result = await payment_service.process_success(str(payment.id))
                 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
                 if isinstance(callback.message, Message):
+                    text = "✅ <b>Оплата через TON получена!</b>\n\n"
+                    if result and result.get("type") == "deposit":
+                        text += f"Ваш баланс пополнен на <b>{result['amount']} RUB</b>."
+                    else:
+                        text += "Ваша подписка активирована. Перейдите в профиль, чтобы получить ключ."
+
                     await safe_edit(
                         callback.message,
-                        "✅ <b>Оплата через TON получена!</b>\n\nВаша подписка активирована. Перейдите в профиль, чтобы получить ключ.",
+                        text,
                         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                             [InlineKeyboardButton(text="👤 Профиль", callback_data="profile_main")],
                             [InlineKeyboardButton(text="🏠 Меню", callback_data="main_menu")]
