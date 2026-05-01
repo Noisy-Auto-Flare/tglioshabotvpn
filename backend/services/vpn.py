@@ -174,6 +174,8 @@ class RemnaWaveService:
         endpoints = ["/users", "/api/users", "/api/clients", "/api/client/add"]
         data = {
             "name": f"user_{telegram_id}",
+            "username": f"user_{telegram_id}",
+            "telegramId": telegram_id,
             "expire_at": expire_at,
             "status": "active"
         }
@@ -219,6 +221,28 @@ class RemnaWaveService:
                 return user
         return None
 
+    def get_user_by_telegram_id(self, telegram_id: int) -> Optional[Dict[str, Any]]:
+        """Finds a user by telegramId directly via API."""
+        panel_base = self.api_url
+        if panel_base.endswith("/api"):
+            panel_base = panel_base[:-4]
+        headers = self._build_panel_headers(panel_base)
+        try:
+            response = curl_requests.get(
+                f"{panel_base}/api/users/by-telegram-id/{telegram_id}",
+                headers=headers,
+                impersonate="chrome120",
+                http_version=CurlHttpVersion.V1_1,
+                timeout=10,
+                verify=False
+            )
+            if response.status_code == 200:
+                data = response.json()
+                return data.get("response", data)
+        except Exception as e:
+            logger.debug(f"Telegram ID lookup failed for {telegram_id}: {e}")
+        return None
+
     def create_user_and_get_link(self, telegram_id: int, data_limit_gb: int = 30, days: int = 30, sub_id: Optional[int] = None) -> Optional[Dict[str, str]]:
         """Creates a RemnaWave user via curl_cffi and returns subscription URL and UUID."""
         panel_base = self.api_url
@@ -235,6 +259,7 @@ class RemnaWaveService:
         payload = {
             "username": unique_username,
             "status": "ACTIVE",
+            "telegramId": telegram_id,
             "trafficLimitBytes": data_limit_gb * 1024**3,
             "trafficLimitStrategy": "NO_RESET",
             "expireAt": expire_at,
