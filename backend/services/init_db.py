@@ -17,11 +17,11 @@ async def init_screens(db: AsyncSession):
             "image_url": "https://i.ibb.co/j9PDJHrD/image.png"
         },
         "tariff_list": {
-            "text": "  <b>Выберите тарифный план</b>\n\nМы подготовили лучшие условия для вас:",
+            "text": "<tg-emoji emoji-id=\"5413879192267805083\">📋</tg-emoji> <b>Выберите тарифный план</b>\n\n<tg-emoji emoji-id=\"5823396554345549784\">💎</tg-emoji> Доступные тарифы:",
             "image_url": "https://i.ibb.co/HDJfqBjp/image.png"
         },
         "payment": {
-            "text": "💳 <b>Оплата покупки</b>\n\nТариф: <b>{plan_label}</b>\nСумма: <b>{price}р</b>\n\nВыберите удобный способ оплаты:",
+            "text": "<tg-emoji emoji-id=\"5427168083074628963\">💳</tg-emoji> <b>Оплата покупки</b>\n\nТариф: <b>{plan_label}</b>\nСумма: <b>{price}</b>\n\n<tg-emoji emoji-id=\"5332455502917949981\">💳</tg-emoji> Выберите удобный способ оплаты:",
             "image_url": "https://i.ibb.co/3yFztHqy/2.png"
         },
         "profile_main": {
@@ -45,17 +45,17 @@ async def init_screens(db: AsyncSession):
             "image_url": "https://i.ibb.co/Dgky69mM/5.png"
         },
         "referral_system": {
-            "text": "<tg-emoji emoji-id=\"5438520338780533036\">👥</tg-emoji> <b>Реферальная система</b>\n\nПриглашайте друзей и получайте <tg-emoji emoji-id=\"5451631566834907951\">🎁</tg-emoji> <b>+2 дня</b> к вашей подписке за каждого приглашенного!\n\n<tg-emoji emoji-id=\"5346176879751612829\">📊</tg-emoji> Количество приглашенных: <b>{count}</b>\n<tg-emoji emoji-id=\"5346176879751612829\">🔗</tg-emoji> Ваша ссылка: <code>{ref_link}</code>",
+            "text": "<tg-emoji emoji-id=\"6001526766714227911\">👥</tg-emoji> <b>Реферальная программа</b>\n\nПриглашайте друзей и получайте <tg-emoji emoji-id=\"5203996991054432397\">🎁</tg-emoji> <b>+2 дня</b> к вашей подписке за каждого приглашенного!\n\n<tg-emoji emoji-id=\"5271604874419647061\">🔗</tg-emoji> Ваша ссылка:\n<code>https://t.me/{bot_username}?start={user_id}</code>\n\n<tg-emoji emoji-id=\"5231200819986047254\">📊</tg-emoji> Количество приглашенных: <b>{count}</b>",
             "image_url": "https://i.ibb.co/mk5W6Vt/4.png"
         },
         "reset_key_confirm": {
-            "text": "⚠️ <b>Подтверждение сброса ключа</b>\n\nВы уверены что хотите удалить старый ключ и получить новый?\nДанная функция доступна всего лишь 3 раза.\n\nКоличество доступных сбросов для текущей подписки: <b>{remaining_resets}</b>",
+            "text": "<tg-emoji emoji-id=\"5447644880824181073\">⚠️</tg-emoji> <b>Подтверждение сброса ключа</b>\n\nКоличество доступных сбросов для текущей подписки: <b>{remaining_resets}</b>\n\n<b>Вы уверены что хотите удалить старый ключ и получить новый?</b>",
         },
         "sub_management": {
-            "text": "⚙️ <b>Управление подпиской</b>\n\nЗдесь вы можете управлять вашим VPN-доступом, обновить ключ или продлить текущий тариф.\n\nТариф: <b>{plan_label}</b>\nДо: <b>{end_date}</b>",
+            "text": "<tg-emoji emoji-id=\"5341715473882955310\">⚙️</tg-emoji> <b>Управление подпиской</b>\n\nЗдесь вы можете управлять вашим VPN-доступом, обновить ключ или продлить текущий тариф\n\n<tg-emoji emoji-id=\"5416041192905265756\">📋</tg-emoji><b> Тариф</b>: {plan_label}\n<tg-emoji emoji-id=\"5274055917766202507\">📅</tg-emoji><b> До</b: {end_date}>",
         },
         "my_subscriptions": {
-            "text": "📜 <b>Ваши подписки</b>\n\nВыберите подписку из списка ниже для управления:",
+            "text": "<tg-emoji emoji-id=\"5985817541577019490\">📜</tg-emoji> <b>Ваши подписки</b>\n\nВыберите подписку из списка ниже для управления:",
         },
         "required_sub": {
             "text": "⚠️ <b>Обязательная подписка</b>\n\nДля использования бота вы должны быть подписаны на наш канал {channel}.\n\nПодпишитесь и нажмите кнопку «Проверить подписку».",

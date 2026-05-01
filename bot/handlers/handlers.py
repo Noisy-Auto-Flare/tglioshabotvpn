@@ -171,9 +171,15 @@ async def cmd_start(message: Message, db: AsyncSession):
                         except Exception as vpn_err:
                             logger.error(f"Failed to sync expiration with RemnaWave for user {inviter.id}: {vpn_err}")
                 
-                notification_msg = f"🎁 По вашей ссылке перешел новый пользователь! Вам начислено <b>+2 дня</b> подписки."
+                notification_msg = (
+                    f"<tg-emoji emoji-id=\"5222444124698853913\">🎁</tg-emoji> <b>По вашей ссылке перешел новый пользователь!</b>\n\n"
+                    f"<tg-emoji emoji-id=\"5203996991054432397\">🎁</tg-emoji> Вам начислено <b>+2 дня</b> подписки"
+                )
             else:
-                notification_msg = f"👥 По вашей ссылке перешел новый пользователь! К сожалению, у вас нет активной подписки для начисления бонусных дней."
+                notification_msg = (
+                    f"<tg-emoji emoji-id=\"5222444124698853913\">🎁</tg-emoji> <b>По вашей ссылке перешел новый пользователь!</b>\n\n"
+                    f"К сожалению, у вас нет активной подписки для начисления бонусных дней."
+                )
 
             # Notify inviter
             if message.bot:
@@ -427,7 +433,7 @@ async def process_get_key(callback: CallbackQuery, db: AsyncSession):
     vpn_key = (await db.execute(vpn_stmt)).scalar_one_or_none()
 
     if vpn_key and vpn_key.config and callback.message:
-        await callback.message.answer(f"🔑 Ваш ключ для выбранной подписки:\n\n<code>{vpn_key.config}</code>", parse_mode="HTML")
+        await callback.message.answer(f"<tg-emoji emoji-id=\"5307843983102204243\">🔑</tg-emoji> <b>Ваш ключ для выбранной подписки:</b>\n\n<code>{vpn_key.config}</code>", parse_mode="HTML")
         await callback.answer()
     else:
         await callback.answer("❌ Ключ еще не создан или неактивен.", show_alert=True)
@@ -632,15 +638,16 @@ async def process_dep_sbp(callback: CallbackQuery, db: AsyncSession):
 
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Оплатить через СБП", url=pay_url)],
-        [InlineKeyboardButton(text="Проверить оплату", callback_data=f"check_pay_{payment.id}")],
-        [InlineKeyboardButton(text="⬅️ Назад", callback_data=f"dep_amt_{amount}")]
+        [InlineKeyboardButton(text="<tg-emoji emoji-id=\"5265074015868822600\">💳</tg-emoji> Оплатить через СБП", url=pay_url)],
+        [InlineKeyboardButton(text="<tg-emoji emoji-id=\"5346300789558101141\">✅</tg-emoji> Проверить оплату", callback_data=f"check_pay_{payment.id}", style="danger")],
+        [InlineKeyboardButton(text="<tg-emoji emoji-id=\"5258236805890710909\">⬅️</tg-emoji> Назад", callback_data=f"dep_amt_{amount}")]
     ])
     
     text = (
-        f"🚀 <b>Пополнение баланса через СБП</b>\n\n"
+        f"<tg-emoji emoji-id=\"5188481279963715781\">🚀</tg-emoji> <b>Оплата через СБП (Platega)</b>\n\n"
         f"Сумма: <b>{amount} RUB</b>\n\n"
-        f"Нажмите кнопку ниже для оплаты. После завершения нажмите «Проверить оплату»."
+        f"<tg-emoji emoji-id=\"5346300789558101141\">📲</tg-emoji> После оплаты нажмите кнопку \"Проверить оплату\"\n"
+        f"Нажмите кнопку ниже для оплаты:"
     )
     if isinstance(callback.message, Message):
         await safe_edit(callback.message, text, reply_markup=keyboard)
@@ -675,15 +682,15 @@ async def process_dep_cryptobot(callback: CallbackQuery, db: AsyncSession):
     
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💳 Оплатить", url=invoice["pay_url"])],
-        [InlineKeyboardButton(text="🔄 Проверить оплату", callback_data=f"check_pay_{invoice['invoice_id']}")],
-        [InlineKeyboardButton(text="⬅️ Назад", callback_data=f"dep_amt_{amount}")]
+        [InlineKeyboardButton(text="<tg-emoji emoji-id=\"5361836987642815474\">💳</tg-emoji> Оплатить", url=invoice["pay_url"])],
+        [InlineKeyboardButton(text="<tg-emoji emoji-id=\"5346300789558101141\">🔄</tg-emoji> Проверить оплату", callback_data=f"check_pay_{invoice['invoice_id']}", style="danger")],
+        [InlineKeyboardButton(text="<tg-emoji emoji-id=\"5258236805890710909\">⬅️</tg-emoji> Назад", callback_data=f"dep_amt_{amount}")]
     ])
     
     if isinstance(callback.message, Message):
         await safe_edit(
             callback.message,
-            f"🔗 <b>Пополнение через CryptoBot</b>\n\nСумма: {amount_usd:.2f} USD ({amount} RUB)\n\nНажмите кнопку ниже:",
+            f"<tg-emoji emoji-id=\"5361836987642815474\">💎</tg-emoji> <b>Счет CryptoBot создан!</b>\n\nСумма: <b>{amount_usd:.2f} USDT</b>\n\n<tg-emoji emoji-id=\"5346300789558101141\">📲</tg-emoji> После оплаты нажмите кнопку \"Проверить оплату\"\nНажмите кнопку ниже для оплаты:",
             reply_markup=keyboard
         )
     await callback.answer()
@@ -822,17 +829,23 @@ async def open_setup_guides(callback: CallbackQuery, db: AsyncSession):
     await callback.answer("❌ Этот раздел больше не доступен. Используйте кнопку Инструкции в меню управления подпиской.", show_alert=True)
 
 @router.callback_query(F.data == "referral_system")
-async def open_referral(callback: CallbackQuery, db: AsyncSession):
+async def open_referral_system(callback: CallbackQuery, db: AsyncSession):
+    if not callback.bot: return
     user = await _get_user_by_tg(db, callback.from_user.id)
-    if not user or not callback.bot: return
+    if not user: return
     
-    count_stmt = select(func.count(User.id)).where(User.referred_by == user.id)
-    count = (await db.execute(count_stmt)).scalar() or 0
+    # Get invited count
+    stmt = select(func.count(User.id)).where(User.referred_by == user.id)
+    count = (await db.execute(stmt)).scalar() or 0
     
     bot_info = await callback.bot.get_me()
-    ref_link = f"https://t.me/{bot_info.username}?start={user.referral_code}"
-    
-    await render_screen(callback, db, "referral_system", keyboard=get_back_to_main(), count=count, ref_link=ref_link)
+    await render_screen(
+        callback, db, "referral_system", 
+        keyboard=get_back_to_main(), 
+        count=count, 
+        bot_username=bot_info.username,
+        user_id=user.referral_code
+    )
     await callback.answer()
 
 @router.callback_query(F.data.startswith("pay_order_"))
@@ -909,15 +922,15 @@ async def process_pay_cryptobot(callback: CallbackQuery, db: AsyncSession):
     
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💳 Оплатить", url=invoice["pay_url"])],
-        [InlineKeyboardButton(text="🔄 Проверить оплату", callback_data=f"check_pay_{invoice['invoice_id']}")],
-        [InlineKeyboardButton(text="⬅️ Назад", callback_data=f"pay_order_{plan_id}")]
+        [InlineKeyboardButton(text="<tg-emoji emoji-id=\"5361836987642815474\">💳</tg-emoji> Оплатить", url=invoice["pay_url"])],
+        [InlineKeyboardButton(text="<tg-emoji emoji-id=\"5346300789558101141\">🔄</tg-emoji> Проверить оплату", callback_data=f"check_pay_{invoice['invoice_id']}", style="danger")],
+        [InlineKeyboardButton(text="<tg-emoji emoji-id=\"5258236805890710909\">⬅️</tg-emoji> Назад", callback_data=f"pay_order_{plan_id}")]
     ])
     
     if isinstance(callback.message, Message):
         await safe_edit(
             callback.message,
-            f"🔗 <b>Счет CryptoBot создан!</b>\n\nТариф: {plan['label']}\nСумма: {amount_usd:.2f} USD\n\nНажмите кнопку ниже для оплаты:",
+            f"<tg-emoji emoji-id=\"5361836987642815474\">💎</tg-emoji> <b>Счет CryptoBot создан!</b>\n\nТариф: {plan['label']}\nСумма: <b>{amount_usd:.2f} USDT</b>\n\n<tg-emoji emoji-id=\"5346300789558101141\">📲</tg-emoji> После оплаты нажмите кнопку \"Проверить оплату\"\nНажмите кнопку ниже для оплаты:",
             reply_markup=keyboard
         )
     await callback.answer()
@@ -978,17 +991,17 @@ async def process_pay_sbp(callback: CallbackQuery, db: AsyncSession):
 
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Оплатить через СБП", url=pay_url)],
-        [InlineKeyboardButton(text="Проверить оплату", callback_data=f"check_pay_{payment.id}")],
-        [InlineKeyboardButton(text="⬅️ Назад", callback_data=f"pay_order_{plan_id}")]
+        [InlineKeyboardButton(text="<tg-emoji emoji-id=\"5265074015868822600\">💳</tg-emoji> Оплатить через СБП", url=pay_url)],
+        [InlineKeyboardButton(text="<tg-emoji emoji-id=\"5346300789558101141\">✅</tg-emoji> Проверить оплату", callback_data=f"check_pay_{payment.id}", style="danger")],
+        [InlineKeyboardButton(text="<tg-emoji emoji-id=\"5258236805890710909\">⬅️</tg-emoji> Назад", callback_data=f"pay_order_{plan_id}")]
     ])
     
     text = (
-        f"🚀 <b>Оплата через СБП (Platega)</b>\n\n"
+        f"<tg-emoji emoji-id=\"5188481279963715781\">🚀</tg-emoji> <b>Оплата через СБП (Platega)</b>\n\n"
         f"Тариф: {plan['label']}\n"
-        f"К оплате: <b>{amount} RUB</b>\n\n"
-        f"Нажмите кнопку ниже, чтобы перейти к оплате. "
-        f"После оплаты нажмите «Проверить оплату»."
+        f"К оплате: <b>{amount}</b>\n\n"
+        f"<tg-emoji emoji-id=\"5346300789558101141\">📲</tg-emoji> После оплаты нажмите кнопку \"Проверить оплату\"\n"
+        f"Нажмите кнопку ниже, чтобы перейти к оплате:"
     )
     if isinstance(callback.message, Message):
         await safe_edit(callback.message, text, reply_markup=keyboard)
