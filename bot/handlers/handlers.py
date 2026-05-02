@@ -947,7 +947,7 @@ async def process_pay_cryptobot(callback: CallbackQuery, db: AsyncSession):
             f"<tg-emoji emoji-id=\"5361836987642815474\">💎</tg-emoji> <b>Счет CryptoBot создан!</b>\n\n"
             f"Тариф: <b>{plan['label']}</b>\n"
             f"Сумма: <b>{amount_usd:.2f} USDT</b>\n\n"
-            f"<tg-emoji emoji-id=\"5346300789558101141\">📲</tg-emoji> После оплаты нажмите кнопку \"Проверить оплату\"\n"
+            f"<tg-emoji emoji-id=\"5346300789558101141\">📲</tg-emoji> <b>После оплаты нажмите кнопку \"Проверить оплату\"\n</b>"
             f"Нажмите кнопку ниже для оплаты:",
             reply_markup=keyboard
         )
