@@ -639,15 +639,15 @@ async def process_dep_sbp(callback: CallbackQuery, db: AsyncSession):
 
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💳 Оплатить через СБП", url=pay_url)],
-        [InlineKeyboardButton(text="✅ Проверить оплату", callback_data=f"check_pay_{payment.id}", style="danger")],
-        [InlineKeyboardButton(text="Назад", callback_data=f"dep_amt_{amount}")]
+        [InlineKeyboardButton(icon_custom_emoji_id="5265074015868822600", text="Оплатить через СБП", url=pay_url)],
+        [InlineKeyboardButton(icon_custom_emoji_id="5346300789558101141", text="Проверить оплату", callback_data=f"check_pay_{payment.id}")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5258236805890710909", text="Назад", callback_data=f"dep_amt_{amount}")]
     ])
     
     text = (
-        f"<tg-emoji emoji-id=\"5188481279963715781\">🚀</tg-emoji> <b>Оплата через СБП (Platega)</b>\n\n"
+        f"<tg-emoji emoji-id=\"5188481279963715781\">📲</tg-emoji> <b>Оплата через СБП (Platega)</b>\n\n"
         f"Тариф: <b>Пополнение баланса</b>\n"
-        f"К оплате: <b>{amount}</b>\n\n"
+        f"К оплате: <b>{amount} RUB</b>\n\n"
         f"<tg-emoji emoji-id=\"5346300789558101141\">📲</tg-emoji> После оплаты нажмите кнопку \"Проверить оплату\"\n"
         f"Нажмите кнопку ниже, чтобы перейти к оплате:"
     )
@@ -684,18 +684,18 @@ async def process_dep_cryptobot(callback: CallbackQuery, db: AsyncSession):
     
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💳 Оплатить", url=invoice["pay_url"])],
-        [InlineKeyboardButton(text="🔄 Проверить оплату", callback_data=f"check_pay_{invoice['invoice_id']}", style="danger")],
-        [InlineKeyboardButton(text="Назад", callback_data=f"dep_amt_{amount}")]
+        [InlineKeyboardButton(icon_custom_emoji_id="5361836987642815474", text="Оплатить", url=invoice["pay_url"])],
+        [InlineKeyboardButton(icon_custom_emoji_id="5346300789558101141", text="Проверить оплату", callback_data=f"check_pay_{invoice['invoice_id']}")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5258236805890710909", text="Назад", callback_data=f"dep_amt_{amount}")]
     ])
     
     if isinstance(callback.message, Message):
         await safe_edit(
             callback.message,
-            f"<b>💎 Счет CryptoBot создан!</b>\n\n"
+            f"<tg-emoji emoji-id=\"5361836987642815474\">💎</tg-emoji> <b>Счет CryptoBot создан!</b>\n\n"
             f"Тариф: <b>Пополнение баланса</b>\n"
             f"Сумма: <b>{amount_usd:.2f} USDT</b>\n\n"
-            f"📲 После оплаты нажмите кнопку \"Проверить оплату\"\n"
+            f"<tg-emoji emoji-id=\"5346300789558101141\">📲</tg-emoji> После оплаты нажмите кнопку \"Проверить оплату\"\n"
             f"Нажмите кнопку ниже для оплаты:",
             reply_markup=keyboard
         )
@@ -787,9 +787,9 @@ async def process_dep_ton(callback: CallbackQuery, db: AsyncSession):
 
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💎 Открыть TON Кошелек", url=pay_url)],
-        [InlineKeyboardButton(text="✅ Проверить оплату", callback_data=f"check_pay_{payment.id}", style="danger")],
-        [InlineKeyboardButton(text="⬅️ Назад", callback_data=f"dep_amt_{amount}")]
+        [InlineKeyboardButton(icon_custom_emoji_id="5377620962390857342", text="Открыть TON Кошелек", url=pay_url)],
+        [InlineKeyboardButton(icon_custom_emoji_id="5346300789558101141", text="Проверить оплату", callback_data=f"check_pay_{payment.id}")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5258236805890710909", text="Назад", callback_data=f"dep_amt_{amount}")]
     ])
     
     text = (
@@ -936,15 +936,19 @@ async def process_pay_cryptobot(callback: CallbackQuery, db: AsyncSession):
     
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💳 Оплатить", url=invoice["pay_url"])],
-        [InlineKeyboardButton(text="🔄 Проверить оплату", callback_data=f"check_pay_{invoice['invoice_id']}", style="danger")],
-        [InlineKeyboardButton(text="⬅️ Назад", callback_data=f"pay_order_{plan_id}")]
+        [InlineKeyboardButton(icon_custom_emoji_id="5361836987642815474", text="Оплатить", url=invoice["pay_url"])],
+        [InlineKeyboardButton(icon_custom_emoji_id="5346300789558101141", text="Проверить оплату", callback_data=f"check_pay_{invoice['invoice_id']}")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5258236805890710909", text="Назад", callback_data=f"pay_order_{plan_id}")]
     ])
     
     if isinstance(callback.message, Message):
         await safe_edit(
             callback.message,
-            f"<b>💎 Счет CryptoBot создан!</b>\n\nТариф: {plan['label']}\nСумма: <b>{amount_usd:.2f} USDT</b>\n\n📲 После оплаты нажмите кнопку \"Проверить оплату\"\nНажмите кнопку ниже для оплаты:",
+            f"<tg-emoji emoji-id=\"5361836987642815474\">💎</tg-emoji> <b>Счет CryptoBot создан!</b>\n\n"
+            f"Тариф: <b>{plan['label']}</b>\n"
+            f"Сумма: <b>{amount_usd:.2f} USDT</b>\n\n"
+            f"<tg-emoji emoji-id=\"5346300789558101141\">📲</tg-emoji> После оплаты нажмите кнопку \"Проверить оплату\"\n"
+            f"Нажмите кнопку ниже для оплаты:",
             reply_markup=keyboard
         )
     await callback.answer()
@@ -1005,15 +1009,15 @@ async def process_pay_sbp(callback: CallbackQuery, db: AsyncSession):
 
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="<tg-emoji emoji-id=\"5265074015868822600\">💳</tg-emoji> Оплатить через СБП", url=pay_url)],
-        [InlineKeyboardButton(text="<tg-emoji emoji-id=\"5346300789558101141\">✅</tg-emoji> Проверить оплату", callback_data=f"check_pay_{payment.id}", style="danger")],
-        [InlineKeyboardButton(text="<tg-emoji emoji-id=\"5258236805890710909\">⬅️</tg-emoji> Назад", callback_data=f"pay_order_{plan_id}")]
+        [InlineKeyboardButton(icon_custom_emoji_id="5265074015868822600", text="Оплатить через СБП", url=pay_url)],
+        [InlineKeyboardButton(icon_custom_emoji_id="5346300789558101141", text="Проверить оплату", callback_data=f"check_pay_{payment.id}")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5258236805890710909", text="Назад", callback_data=f"pay_order_{plan_id}")]
     ])
     
     text = (
-        f"<tg-emoji emoji-id=\"5188481279963715781\">🚀</tg-emoji> <b>Оплата через СБП (Platega)</b>\n\n"
-        f"Тариф: {plan['label']}\n"
-        f"К оплате: <b>{amount}</b>\n\n"
+        f"<tg-emoji emoji-id=\"5188481279963715781\">📲</tg-emoji> <b>Оплата через СБП (Platega)</b>\n\n"
+        f"Тариф: <b>{plan['label']}</b>\n"
+        f"К оплате: <b>{amount} RUB</b>\n\n"
         f"<tg-emoji emoji-id=\"5346300789558101141\">📲</tg-emoji> После оплаты нажмите кнопку \"Проверить оплату\"\n"
         f"Нажмите кнопку ниже, чтобы перейти к оплате:"
     )
@@ -1051,18 +1055,20 @@ async def process_pay_ton(callback: CallbackQuery, db: AsyncSession):
 
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Открыть TON Кошелек", url=pay_url)],
-        [InlineKeyboardButton(text="Проверить оплату", callback_data=f"check_pay_{payment.id}")],
-        [InlineKeyboardButton(text="⬅️ Назад", callback_data=f"pay_order_{plan_id}")]
+        [InlineKeyboardButton(icon_custom_emoji_id="5377620962390857342", text="Открыть TON Кошелек", url=pay_url)],
+        [InlineKeyboardButton(icon_custom_emoji_id="5346300789558101141", text="Проверить оплату", callback_data=f"check_pay_{payment.id}")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5258236805890710909", text="Назад", callback_data=f"pay_order_{plan_id}")]
     ])
     
     text = (
-        f"💎 <b>Оплата через TON Connect</b>\n\n"
-        f"Тариф: {plan['label']}\n"
-        f"К оплате: <b>{ton_amount} TON</b>\n\n"
-        f"Адрес для перевода: <code>{ton_service.wallet_address}</code>\n"
-        f"Комментарий (ОБЯЗАТЕЛЬНО): <code>{payment.id}</code>\n\n"
-        f"Нажмите кнопку ниже или переведите вручную с указанием комментария."
+        f"<tg-emoji emoji-id=\"5265151230790884988\">💎</tg-emoji> <b>Оплата через TON Connect</b>\n\n"
+        f"Тариф: <b>{plan['label']}</b>\n"
+        f"Сумма: <b>{ton_amount} TON</b> ({amount} RUB)\n\n"
+        f"<tg-emoji emoji-id=\"5429405838345265327\">📥</tg-emoji> <b>Адрес для перевода:</b>\n"
+        f"<code>UQBO9ldjh-Z8h4PimediLifI5n-QSSf7lg6ND9itKamL1e97</code>\n\n"
+        f"<tg-emoji emoji-id=\"5420323339723881652\">💬</tg-emoji> Комментарий (ОБЯЗАТЕЛЬНО): <code>{payment.id}</code>\n\n"
+        f"Перед переводом обязательно проверьте сумму, она должна совпадать с указанной выше <tg-emoji emoji-id=\"5274099962655816924\">⚠️</tg-emoji>\n\n"
+        f"Нажмите на кнопку ниже или переведите вручную с указанием комментария"
     )
     if isinstance(callback.message, Message):
         await safe_edit(callback.message, text, reply_markup=keyboard)
@@ -1129,16 +1135,16 @@ async def process_check_pay(callback: CallbackQuery, db: AsyncSession):
          if isinstance(callback.message, Message):
              text = "✅ <b>Оплата получена!</b>\n\n"
              if payment.payload and payment.payload.startswith("dep_"):
-                 text += f"Ваш баланс пополнен на <b>{payment.amount} RUB</b>."
+                 text += f"Ваш баланс пополнен на <b>{payment.amount} RUB</b>.\nСпасибо за оплату!"
              else:
-                 text += "Ваша подписка активирована. Перейдите в профиль, чтобы получить ключ."
+                 text += "Ваша подписка активирована. Приятного пользования!\n\nПерейдите в профиль, чтобы получить ключ."
                  
              await safe_edit(
                  callback.message,
                  text,
                  reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                     [InlineKeyboardButton(text="👤 Профиль", callback_data="profile_main")],
-                     [InlineKeyboardButton(text="🏠 Меню", callback_data="main_menu")]
+                     [InlineKeyboardButton(text="👤 Мой профиль", callback_data="profile_main")],
+                     [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")]
                  ])
              )
     else:
@@ -1150,18 +1156,18 @@ async def process_check_pay(callback: CallbackQuery, db: AsyncSession):
                 result = await payment_service.process_success(str(payment.id))
                 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
                 if isinstance(callback.message, Message):
-                    text = "✅ <b>Оплата через TON получена!</b>\n\n"
+                    text = "✅ <b>Оплата получена!</b>\n\n"
                     if result and result.get("type") == "deposit":
-                        text += f"Ваш баланс пополнен на <b>{result['amount']} RUB</b>."
+                        text += f"Ваш баланс пополнен на <b>{result['amount']} RUB</b>.\nСпасибо за оплату!"
                     else:
-                        text += "Ваша подписка активирована. Перейдите в профиль, чтобы получить ключ."
+                        text += "Ваша подписка активирована. Приятного пользования!\n\nПерейдите в профиль, чтобы получить ключ."
 
                     await safe_edit(
                         callback.message,
                         text,
                         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                            [InlineKeyboardButton(text="👤 Профиль", callback_data="profile_main")],
-                            [InlineKeyboardButton(text="🏠 Меню", callback_data="main_menu")]
+                            [InlineKeyboardButton(text="👤 Мой профиль", callback_data="profile_main")],
+                            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")]
                         ])
                     )
                 return

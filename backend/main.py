@@ -20,6 +20,7 @@ from backend.services.payments.platega import platega_service
 
 from backend.services.tasks import (
     check_expirations,
+    check_expiring_subscriptions,
     payment_polling,
     process_successful_payment,
     vpn_retry_task,
@@ -56,6 +57,7 @@ async def lifespan(app: FastAPI):
     # Start background tasks
     tasks = []
     tasks.append(asyncio.create_task(check_expirations()))
+    tasks.append(asyncio.create_task(check_expiring_subscriptions()))
     tasks.append(asyncio.create_task(vpn_retry_task()))
     
     if not settings.USE_WEBHOOK:

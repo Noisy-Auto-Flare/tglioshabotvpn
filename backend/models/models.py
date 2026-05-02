@@ -41,6 +41,7 @@ class Subscription(Base):
     end_date: Mapped[datetime] = mapped_column(DateTime)
     status: Mapped[SubscriptionStatus] = mapped_column(String, default=SubscriptionStatus.ACTIVE)
     reset_count: Mapped[int] = mapped_column(Integer, default=0)
+    expiry_notified: Mapped[bool] = mapped_column(default=False)
 
     user: Mapped["User"] = relationship(back_populates="subscriptions")
     vpn_key: Mapped[Optional["VPNKey"]] = relationship(back_populates="subscription", cascade="all, delete-orphan")

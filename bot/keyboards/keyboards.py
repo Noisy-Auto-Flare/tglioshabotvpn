@@ -4,7 +4,7 @@ from typing import Optional
 
 def get_main_menu() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(icon_custom_emoji_id="5188481279963715781", text="Подключиться", callback_data="buy_menu", style="danger")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5188481279963715781", text="Подключиться", callback_data="buy_menu")],
         [InlineKeyboardButton(icon_custom_emoji_id="5920344347152224466", text="Мой профиль", callback_data="profile_main")],
         [
             InlineKeyboardButton(icon_custom_emoji_id="5944970130554359187", text="Реф. система", callback_data="referral_system"),
@@ -29,8 +29,8 @@ def get_tariff_list() -> InlineKeyboardMarkup:
 
 def get_payment_methods(plan_id: str) -> InlineKeyboardMarkup:
     keyboard = [
-        [InlineKeyboardButton(icon_custom_emoji_id="5931368295545443065", text="Оплатить с баланса", callback_data=f"pay_balance_{plan_id}", style="danger")],
-        [InlineKeyboardButton(icon_custom_emoji_id="5240368741211980660", text="СБП (рубли)", callback_data=f"pay_sbp_{plan_id}", style="danger")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5931368295545443065", text="Оплатить с баланса", callback_data=f"pay_balance_{plan_id}")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5240368741211980660", text="СБП (рубли)", callback_data=f"pay_sbp_{plan_id}")],
         [InlineKeyboardButton(icon_custom_emoji_id="5397597950501204351", text="CryptoBot", callback_data=f"pay_cryptobot_{plan_id}")],
         [InlineKeyboardButton(icon_custom_emoji_id="5345837435601305335", text="CryptoMus", callback_data=f"pay_cryptomus_{plan_id}")],
         [InlineKeyboardButton(icon_custom_emoji_id="5438496463044752972", text="Telegram Stars", callback_data=f"pay_stars_{plan_id}")],
@@ -50,7 +50,7 @@ def get_deposit_methods() -> InlineKeyboardMarkup:
 
 def get_deposit_payment_methods(amount: int) -> InlineKeyboardMarkup:
     keyboard = [
-        [InlineKeyboardButton(icon_custom_emoji_id="5240368741211980660", text="СБП (рубли)", callback_data=f"dep_sbp_{amount}", style="danger")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5240368741211980660", text="СБП (рубли)", callback_data=f"dep_sbp_{amount}")],
         [InlineKeyboardButton(icon_custom_emoji_id="5397597950501204351", text="CryptoBot", callback_data=f"dep_cryptobot_{amount}")],
         [InlineKeyboardButton(icon_custom_emoji_id="5345837435601305335", text="CryptoMus", callback_data=f"dep_cryptomus_{amount}")],
         [InlineKeyboardButton(icon_custom_emoji_id="5438496463044752972", text="Telegram Stars", callback_data=f"dep_stars_{amount}")],

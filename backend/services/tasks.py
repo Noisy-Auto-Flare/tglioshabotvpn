@@ -11,6 +11,7 @@ from backend.models.models import User, Subscription, VPNKey, SubscriptionStatus
 from backend.services.vpn import vpn_service
 from backend.services.payment_service import PaymentService
 from backend.services.payments.cryptobot import cryptobot_service
+from backend.services.content import ContentService
 from backend.core.config import settings
 from sqlalchemy import select
 
@@ -55,15 +56,14 @@ async def _notify_admins(text: str) -> None:
 
 async def _send_subscription_message(telegram_id: int, link: str, plan_days: int, traffic_gb: int) -> None:
     text = (
-        "✅ Оплата подтверждена! Подписка активирована.\n\n"
-        f"🔗 Ссылка для подключения:\n{link}\n\n"
-        f"📦 Лимит трафика: {traffic_gb} GB\n"
-        f"📅 Срок действия: {plan_days} дней\n\n"
-        "Инструкция: откройте ссылку в VPN-клиенте и импортируйте конфигурацию."
+        f"✅ <b>Оплата получена!</b>\n\n"
+        f"Тариф: <b>Подписка на {plan_days} дней</b>\n"
+        f"Ваша подписка активирована. Приятного пользования!\n\n"
+        f"🔑 <b>Ваш ключ:</b>\n<code>{link}</code>"
     )
     try:
         async with Bot(token=settings.BOT_TOKEN) as bot:
-            await bot.send_message(telegram_id, text, disable_web_page_preview=True)
+            await bot.send_message(telegram_id, text, parse_mode="HTML", disable_web_page_preview=True)
     except Exception as e:
         logger.error("Failed to send subscription link to user %s: %s", telegram_id, e)
 
@@ -221,6 +221,21 @@ async def check_expirations():
                     logger.info(f"Subscription {sub.id} expired for user {sub.user_id}")
                     sub.status = SubscriptionStatus.EXPIRED
                     
+                    # Notify user about expiration
+                    try:
+                        user_stmt = select(User).where(User.id == sub.user_id)
+                        user_res = await session.execute(user_stmt)
+                        user = user_res.scalar_one_or_none()
+                        if user:
+                            async with Bot(token=settings.BOT_TOKEN) as bot:
+                                await bot.send_message(
+                                    user.telegram_id,
+                                    "❌ <b>Ваша подписка истекла!</b>\n\nДля возобновления доступа, пожалуйста, продлите подписку в меню бота.",
+                                    parse_mode="HTML"
+                                )
+                    except Exception as notify_err:
+                        logger.error(f"Failed to notify user about expiration: {notify_err}")
+
                     vpn_stmt = select(VPNKey).where(VPNKey.user_id == sub.user_id).order_by(VPNKey.expire_at.desc()).limit(1)
                     vpn_res = await session.execute(vpn_stmt)
                     vpn_key = vpn_res.scalar_one_or_none()
@@ -232,6 +247,56 @@ async def check_expirations():
         except Exception as e:
             logger.error(f"Error in expiration checker: {e}")
         await asyncio.sleep(300)
+
+async def check_expiring_subscriptions():
+    """Checks for subscriptions ending in 3 days and notifies users."""
+    while True:
+        try:
+            async with AsyncSessionLocal() as session:
+                now = datetime.now()
+                target_date = now + timedelta(days=3)
+                
+                # Find active subscriptions ending in 3 days that haven't been notified
+                stmt = select(Subscription).where(
+                    Subscription.status == SubscriptionStatus.ACTIVE,
+                    Subscription.end_date <= target_date,
+                    Subscription.end_date > now,
+                    Subscription.expiry_notified == False
+                )
+                result = await session.execute(stmt)
+                expiring_subs = result.scalars().all()
+
+                if expiring_subs:
+                    content_service = ContentService(session)
+                    screen = await content_service.get_screen("expiry_notification")
+                    template = screen.text if screen else "<b>Уведомление об истечении подписки</b>\n\nВаша подписка заканчивается через {days} дня."
+                    
+                    async with Bot(token=settings.BOT_TOKEN) as bot:
+                        for sub in expiring_subs:
+                            # Get user telegram_id
+                            user_stmt = select(User).where(User.id == sub.user_id)
+                            user_res = await session.execute(user_stmt)
+                            user = user_res.scalar_one_or_none()
+                            
+                            if user:
+                                days_left = (sub.end_date - now).days
+                                if days_left < 0: days_left = 0
+                                
+                                try:
+                                    await bot.send_message(
+                                        user.telegram_id,
+                                        template.format(days=days_left),
+                                        parse_mode="HTML"
+                                    )
+                                    sub.expiry_notified = True
+                                    logger.info(f"Sent expiration warning to user {user.id}")
+                                except Exception as notify_err:
+                                    logger.error(f"Failed to notify user {user.id} about expiration: {notify_err}")
+                    
+                    await session.commit()
+        except Exception as e:
+            logger.error(f"Error in expiration notifier: {e}")
+        await asyncio.sleep(3600) # Check every hour
 
 async def payment_polling():
     """Poll for pending payments from providers that don't use webhooks or as a fallback."""
