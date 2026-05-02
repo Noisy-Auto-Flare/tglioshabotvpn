@@ -682,15 +682,15 @@ async def process_dep_cryptobot(callback: CallbackQuery, db: AsyncSession):
     
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="<tg-emoji emoji-id=\"5361836987642815474\">💳</tg-emoji> Оплатить", url=invoice["pay_url"])],
-        [InlineKeyboardButton(text="<tg-emoji emoji-id=\"5346300789558101141\">🔄</tg-emoji> Проверить оплату", callback_data=f"check_pay_{invoice['invoice_id']}", style="danger")],
-        [InlineKeyboardButton(text="<tg-emoji emoji-id=\"5258236805890710909\">⬅️</tg-emoji> Назад", callback_data=f"dep_amt_{amount}")]
+        [InlineKeyboardButton(text="💳 Оплатить", url=invoice["pay_url"])],
+        [InlineKeyboardButton(text="🔄 Проверить оплату", callback_data=f"check_pay_{invoice['invoice_id']}", style="danger")],
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data=f"dep_amt_{amount}")]
     ])
     
     if isinstance(callback.message, Message):
         await safe_edit(
             callback.message,
-            f"<tg-emoji emoji-id=\"5361836987642815474\">💎</tg-emoji> <b>Счет CryptoBot создан!</b>\n\nСумма: <b>{amount_usd:.2f} USDT</b>\n\n<tg-emoji emoji-id=\"5346300789558101141\">📲</tg-emoji> После оплаты нажмите кнопку \"Проверить оплату\"\nНажмите кнопку ниже для оплаты:",
+            f"<b>💎 Счет CryptoBot создан!</b>\n\nСумма: <b>{amount_usd:.2f} USDT</b>\n\n📲 После оплаты нажмите кнопку \"Проверить оплату\"\nНажмите кнопку ниже для оплаты:",
             reply_markup=keyboard
         )
     await callback.answer()
@@ -922,15 +922,15 @@ async def process_pay_cryptobot(callback: CallbackQuery, db: AsyncSession):
     
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="<tg-emoji emoji-id=\"5361836987642815474\">💳</tg-emoji> Оплатить", url=invoice["pay_url"])],
-        [InlineKeyboardButton(text="<tg-emoji emoji-id=\"5346300789558101141\">🔄</tg-emoji> Проверить оплату", callback_data=f"check_pay_{invoice['invoice_id']}", style="danger")],
-        [InlineKeyboardButton(text="<tg-emoji emoji-id=\"5258236805890710909\">⬅️</tg-emoji> Назад", callback_data=f"pay_order_{plan_id}")]
+        [InlineKeyboardButton(text="💳 Оплатить", url=invoice["pay_url"])],
+        [InlineKeyboardButton(text="🔄 Проверить оплату", callback_data=f"check_pay_{invoice['invoice_id']}", style="danger")],
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data=f"pay_order_{plan_id}")]
     ])
     
     if isinstance(callback.message, Message):
         await safe_edit(
             callback.message,
-            f"<tg-emoji emoji-id=\"5361836987642815474\">💎</tg-emoji> <b>Счет CryptoBot создан!</b>\n\nТариф: {plan['label']}\nСумма: <b>{amount_usd:.2f} USDT</b>\n\n<tg-emoji emoji-id=\"5346300789558101141\">📲</tg-emoji> После оплаты нажмите кнопку \"Проверить оплату\"\nНажмите кнопку ниже для оплаты:",
+            f"<b>💎 Счет CryptoBot создан!</b>\n\nТариф: {plan['label']}\nСумма: <b>{amount_usd:.2f} USDT</b>\n\n📲 После оплаты нажмите кнопку \"Проверить оплату\"\nНажмите кнопку ниже для оплаты:",
             reply_markup=keyboard
         )
     await callback.answer()
