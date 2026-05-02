@@ -68,6 +68,14 @@ async def run_migrations(engine: AsyncEngine):
                 except Exception as e:
                     logger.error(f"Migration failed for subscriptions.reset_count: {e}")
 
+            if "expiry_notified" not in subs_columns:
+                logger.info("Migration: Adding expiry_notified column to subscriptions table...")
+                try:
+                    await conn.execute(text("ALTER TABLE subscriptions ADD COLUMN expiry_notified BOOLEAN DEFAULT 0"))
+                    logger.info("Migration: expiry_notified added successfully.")
+                except Exception as e:
+                    logger.error(f"Migration failed for subscriptions.expiry_notified: {e}")
+
         # 3. Check payments
         payments_columns = await get_columns("payments")
         if payments_columns:
