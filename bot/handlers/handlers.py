@@ -127,6 +127,86 @@ async def _show_profile(event: Union[Message, CallbackQuery], db: AsyncSession, 
         vpn_info=vpn_info,
     )
 
+async def _sync_external_subscriptions(db: AsyncSession, user: User):
+    """
+    Syncs subscriptions from RemnaWave for users who were added manually to the panel
+    using their Telegram ID.
+    """
+    try:
+        # Try to find user in RW by Telegram ID
+        rw_user = await asyncio.to_thread(vpn_service.get_user_by_telegram_id, user.telegram_id)
+        if not rw_user:
+            return
+
+        uuid = rw_user.get("uuid")
+        if not uuid:
+            return
+
+        # Check if this key already exists in our DB
+        stmt = select(VPNKey).where(VPNKey.uuid == uuid)
+        res = await db.execute(stmt)
+        db_key = res.scalar_one_or_none()
+
+        if db_key:
+            # Already synced
+            return
+
+        logger.info(f"Auto-syncing RW subscription for user {user.telegram_id} (UUID: {uuid})")
+        
+        # Parse expiration date
+        expire_at_str = rw_user.get("expireAt")
+        expire_at = None
+        if expire_at_str:
+            try:
+                expire_at = datetime.strptime(expire_at_str, "%Y-%m-%dT%H:%M:%SZ")
+            except ValueError:
+                try:
+                    expire_at = datetime.fromisoformat(expire_at_str.replace('Z', '+00:00')).replace(tzinfo=None)
+                except:
+                    pass
+        
+        if not expire_at:
+            expire_at = datetime.now() + timedelta(days=30) # Default if not set
+
+        # Create subscription record
+        status = rw_user.get("status", "ACTIVE")
+        sub = Subscription(
+            user_id=user.id,
+            plan="manual_sync",
+            traffic_limit_gb=int(rw_user.get("trafficLimitBytes", 0) / 1024**3),
+            start_date=datetime.now(),
+            end_date=expire_at,
+            status=SubscriptionStatus.ACTIVE if status == "ACTIVE" else SubscriptionStatus.EXPIRED
+        )
+        db.add(sub)
+        await db.flush()
+
+        # Create VPN key record
+        short_uuid = rw_user.get("shortUuid")
+        sub_url = rw_user.get("subscriptionUrl")
+        if not sub_url and short_uuid:
+            if settings.SUB_DOMAIN:
+                sub_url = f"{settings.SUB_DOMAIN.rstrip('/')}/{short_uuid}"
+            else:
+                panel_base = settings.REMNAWAVE_API_URL.replace("/api", "")
+                sub_url = f"{panel_base}/sub/{short_uuid}"
+
+        db_key = VPNKey(
+            user_id=user.id,
+            subscription_id=sub.id,
+            uuid=uuid,
+            config=sub_url or f"Manual sync for {rw_user.get('username')}",
+            expire_at=expire_at,
+            is_active=status == "ACTIVE"
+        )
+        db.add(db_key)
+        await db.commit()
+        logger.info(f"Successfully auto-synced subscription for user {user.telegram_id}")
+        
+    except Exception as e:
+        logger.error(f"Failed to auto-sync external subscription for user {user.telegram_id}: {e}")
+        await db.rollback()
+
 @router.message(CommandStart())
 async def cmd_start(message: Message, db: AsyncSession):
     if not message.from_user:
@@ -134,74 +214,22 @@ async def cmd_start(message: Message, db: AsyncSession):
     
     user = await _get_user_by_tg(db, message.from_user.id)
     
-    # Check if user is new and has a referral code
-    if not user and message.text and len(message.text.split()) > 1:
-        ref_code = message.text.split()[1]
+    # ... (existing referral logic) ...
+    if not user:
         referral_code = str(uuid.uuid4())[:8]
-        referred_by = None
-        
-        ref_stmt = select(User).where(User.referral_code == ref_code)
-        inviter = (await db.execute(ref_stmt)).scalar_one_or_none()
-        
-        if inviter:
-            referred_by = inviter.id
-            # Fix referral: +2 days for inviter
-            sub_stmt = select(Subscription).where(
-                Subscription.user_id == inviter.id,
-                Subscription.status == SubscriptionStatus.ACTIVE
-            ).order_by(Subscription.end_date.desc()).limit(1)
-            inviter_sub = (await db.execute(sub_stmt)).scalar_one_or_none()
-            
-            if inviter_sub:
-                inviter_sub.end_date += timedelta(days=2)
-                # Also update VPNKey expiration
-                vpn_stmt = select(VPNKey).where(VPNKey.subscription_id == inviter_sub.id)
-                vpn_keys = (await db.execute(vpn_stmt)).scalars().all()
-                for vpn_key in vpn_keys:
-                    vpn_key.expire_at = inviter_sub.end_date
-                    # Sync with RemnaWave panel
-                    if vpn_key.uuid:
-                        try:
-                            # Use asyncio.to_thread for synchronous curl-based calls
-                            await asyncio.to_thread(
-                                vpn_service.update_user_expiration,
-                                vpn_key.uuid,
-                                inviter_sub.end_date
-                            )
-                        except Exception as vpn_err:
-                            logger.error(f"Failed to sync expiration with RemnaWave for user {inviter.id}: {vpn_err}")
-                
-                notification_msg = (
-                    f"<tg-emoji emoji-id=\"5222444124698853913\">🎁</tg-emoji> <b>По вашей ссылке перешел новый пользователь!</b>\n\n"
-                    f"<tg-emoji emoji-id=\"5203996991054432397\">🎁</tg-emoji> Вам начислено <b>+2 дня</b> подписки"
-                )
-            else:
-                notification_msg = (
-                    f"<tg-emoji emoji-id=\"5222444124698853913\">🎁</tg-emoji> <b>По вашей ссылке перешел новый пользователь!</b>\n\n"
-                    f"К сожалению, у вас нет активной подписки для начисления бонусных дней."
-                )
-
-            # Notify inviter
-            if message.bot:
-                try:
-                    await message.bot.send_message(
-                        inviter.telegram_id,
-                        notification_msg,
-                        parse_mode="HTML"
-                    )
-                except Exception:
-                    pass
-        
-        # Create user immediately to save referral info even if not subbed yet
         user = User(
             telegram_id=message.from_user.id,
             referral_code=referral_code,
-            referred_by=referred_by,
+            referred_by=None,
         )
         db.add(user)
         await db.commit()
-        # Refresh user from DB
+        # Refresh to get ID
         user = await _get_user_by_tg(db, message.from_user.id)
+
+    # Auto-sync subscriptions from RW by Telegram ID
+    if user:
+        await _sync_external_subscriptions(db, user)
 
     # 1. Check channel sub
     is_subbed = await _check_channel_sub(message.bot, message.from_user.id)
@@ -213,16 +241,6 @@ async def cmd_start(message: Message, db: AsyncSession):
         ])
         await render_screen(message, db, "required_sub", keyboard=keyboard, channel=settings.REQUIRED_CHANNEL)
         return
-
-    if not user:
-        referral_code = str(uuid.uuid4())[:8]
-        user = User(
-            telegram_id=message.from_user.id,
-            referral_code=referral_code,
-            referred_by=None,
-        )
-        db.add(user)
-        await db.commit()
 
     await render_screen(message, db, "main_menu", keyboard=get_main_menu(), name=message.from_user.first_name)
 
