@@ -23,7 +23,8 @@ def get_buy_menu() -> InlineKeyboardMarkup:
 def get_tariff_list() -> InlineKeyboardMarkup:
     keyboard = []
     for plan_id, plan in settings.PLANS.items():
-        keyboard.append([InlineKeyboardButton(text=plan["label"], callback_data=f"pay_order_{plan_id}")])
+        text = f"{plan['label']} • {plan['price']}₽"
+        keyboard.append([InlineKeyboardButton(text=text, callback_data=f"pay_order_{plan_id}")])
     keyboard.append([InlineKeyboardButton(icon_custom_emoji_id="5258236805890710909", text="Назад", callback_data="buy_menu")])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 

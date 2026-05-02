@@ -70,10 +70,10 @@ class Settings(BaseSettings):
 
     # VPN Plans
     PLANS: dict = {
-        "30": {"price": 190, "gb": 300, "label": "30 дней - 190р"},
-        "90": {"price": 540, "gb": 900, "label": "90 дней - 540р"},
-        "180": {"price": 990, "gb": 1800, "label": "180 дней - 990р"},
-        "360": {"price": 1290, "gb": 3600, "label": "360 дней - 1290р"},
+        "30": {"price": 190, "gb": 300, "label": "30 дней"},
+        "90": {"price": 540, "gb": 900, "label": "3 месяца"},
+        "180": {"price": 990, "gb": 1800, "label": "6 месяцев"},
+        "360": {"price": 1290, "gb": 3600, "label": "12 месяцев"},
     }
 
 settings = Settings()
