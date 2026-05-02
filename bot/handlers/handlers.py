@@ -568,7 +568,7 @@ async def process_custom_amount_start(callback: CallbackQuery, db: AsyncSession,
     await state.set_state(DepositStates.waiting_for_amount)
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Отмена", callback_data="deposit_menu")]
+        [InlineKeyboardButton(icon_custom_emoji_id="5258236805890710909", text="Отмена", callback_data="deposit_menu")]
     ])
     if isinstance(callback.message, Message):
         await safe_edit(
@@ -970,7 +970,7 @@ async def process_pay_stars(callback: CallbackQuery, db: AsyncSession):
             payload=f"stars_{user.id}_{plan_id}",
             provider_token="",
             currency="XTR",
-            prices=[LabeledPrice(label=f"Подписка на {plan_id} дней", amount=stars_amount)]
+            prices=[LabeledPrice(label=f"<b>Оплата подписки на {plan_id} дней</b>", amount=stars_amount)]
         )
     await callback.answer()
 

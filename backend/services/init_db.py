@@ -21,7 +21,7 @@ async def init_screens(db: AsyncSession):
             "image_url": "https://i.ibb.co/HDJfqBjp/image.png"
         },
         "payment": {
-            "text": "<tg-emoji emoji-id=\"5427168083074628963\">💳</tg-emoji> <b>Оплата покупки</b>\n\nТариф: <b>{plan_label}</b>\nСумма: <b>{price}</b>\n\n<tg-emoji emoji-id=\"5332455502917949981\">💳</tg-emoji> Выберите удобный способ оплаты:",
+            "text": "<tg-emoji emoji-id=\"5427168083074628963\">💳</tg-emoji> <b>Оплата покупки</b>\n\nТариф: <b>{plan_label}</b>\nСумма: <b>{price}</b>\n\n<tg-emoji emoji-id=\"5332455502917949981\">💳</tg-emoji><b> Выберите удобный способ оплаты:</b>",
             "image_url": "https://i.ibb.co/3yFztHqy/2.png"
         },
         "profile_main": {
@@ -55,7 +55,7 @@ async def init_screens(db: AsyncSession):
             "text": "<tg-emoji emoji-id=\"5341715473882955310\">⚙️</tg-emoji> <b>Управление подпиской</b>\n\nЗдесь вы можете управлять вашим VPN-доступом, обновить ключ или продлить текущий тариф\n\n<tg-emoji emoji-id=\"5416041192905265756\">📋</tg-emoji><b> Тариф: {plan_label}</b>\n<tg-emoji emoji-id=\"5274055917766202507\">📅</tg-emoji><b> До: {end_date}</b>",
         },
         "reset_key_confirm": {
-            "text": "<tg-emoji emoji-id=\"5447644880824181073\">⚠️</tg-emoji> <b>Подтверждение сброса ключа</b>\n\nКоличество доступных сбросов для текущей подписки: <b>{remaining_resets}</b>\n\nВы уверены что хотите удалить старый ключ и получить новый?",
+            "text": "<tg-emoji emoji-id=\"5447644880824181073\">⚠️</tg-emoji> <b>Подтверждение сброса ключа</b>\n\nКоличество доступных сбросов для текущей подписки: <b>{remaining_resets}</b>\n\n<b>Вы уверены что хотите удалить старый ключ и получить новый?</b>",
         },
         "required_sub": {
             "text": "⚠️ <b>Обязательная подписка</b>\n\nДля использования бота вы должны быть подписаны на наш канал {channel}.\n\nПодпишитесь и нажмите кнопку «Проверить подписку».",
