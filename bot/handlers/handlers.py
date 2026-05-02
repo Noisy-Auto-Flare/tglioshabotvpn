@@ -638,16 +638,16 @@ async def process_dep_sbp(callback: CallbackQuery, db: AsyncSession):
 
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="<tg-emoji emoji-id=\"5265074015868822600\">💳</tg-emoji> Оплатить через СБП", url=pay_url)],
-        [InlineKeyboardButton(text="<tg-emoji emoji-id=\"5346300789558101141\">✅</tg-emoji> Проверить оплату", callback_data=f"check_pay_{payment.id}", style="danger")],
-        [InlineKeyboardButton(text="<tg-emoji emoji-id=\"5258236805890710909\">⬅️</tg-emoji> Назад", callback_data=f"dep_amt_{amount}")]
+        [InlineKeyboardButton(text="💳 Оплатить через СБП", url=pay_url)],
+        [InlineKeyboardButton(text="✅ Проверить оплату", callback_data=f"check_pay_{payment.id}", style="danger")],
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data=f"dep_amt_{amount}")]
     ])
     
     text = (
-        f"<tg-emoji emoji-id=\"5188481279963715781\">🚀</tg-emoji> <b>Оплата через СБП (Platega)</b>\n\n"
+        f"<b>� Оплата покупки</b>\n\n"
+        f"Тариф: <b>Пополнение баланса</b>\n"
         f"Сумма: <b>{amount} RUB</b>\n\n"
-        f"<tg-emoji emoji-id=\"5346300789558101141\">📲</tg-emoji> После оплаты нажмите кнопку \"Проверить оплату\"\n"
-        f"Нажмите кнопку ниже для оплаты:"
+        f"� Выберите удобный способ оплаты:"
     )
     if isinstance(callback.message, Message):
         await safe_edit(callback.message, text, reply_markup=keyboard)
@@ -690,7 +690,10 @@ async def process_dep_cryptobot(callback: CallbackQuery, db: AsyncSession):
     if isinstance(callback.message, Message):
         await safe_edit(
             callback.message,
-            f"<b>💎 Счет CryptoBot создан!</b>\n\nСумма: <b>{amount_usd:.2f} USDT</b>\n\n📲 После оплаты нажмите кнопку \"Проверить оплату\"\nНажмите кнопку ниже для оплаты:",
+            f"<b>� Оплата покупки</b>\n\n"
+            f"Тариф: <b>Пополнение баланса</b>\n"
+            f"Сумма: <b>{amount_usd:.2f} USDT</b>\n\n"
+            f"💳 Выберите удобный способ оплаты:",
             reply_markup=keyboard
         )
     await callback.answer()
@@ -731,7 +734,10 @@ async def process_dep_cryptomus(callback: CallbackQuery, db: AsyncSession):
     if isinstance(callback.message, Message):
         await safe_edit(
             callback.message,
-            f"🔗 <b>Пополнение через CryptoMus</b>\n\nСумма: {amount} RUB\n\nНажмите кнопку ниже:",
+            f"<b>� Оплата покупки</b>\n\n"
+            f"Тариф: <b>Пополнение баланса</b>\n"
+            f"Сумма: <b>{amount} RUB</b>\n\n"
+            f"💳 Выберите удобный способ оплаты:",
             reply_markup=keyboard
         )
     await callback.answer()
@@ -778,15 +784,17 @@ async def process_dep_ton(callback: CallbackQuery, db: AsyncSession):
 
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Открыть TON Кошелек", url=pay_url)],
-        [InlineKeyboardButton(text="Проверить оплату", callback_data=f"check_pay_{payment.id}")],
+        [InlineKeyboardButton(text="💎 Открыть TON Кошелек", url=pay_url)],
+        [InlineKeyboardButton(text="✅ Проверить оплату", callback_data=f"check_pay_{payment.id}", style="danger")],
         [InlineKeyboardButton(text="⬅️ Назад", callback_data=f"dep_amt_{amount}")]
     ])
     
     text = (
-        f"💎 <b>Пополнение через TON Connect</b>\n\n"
-        f"Сумма: <b>{ton_amount} TON</b> ({amount} RUB)\n"
-        f"Комментарий (ОБЯЗАТЕЛЬНО): <code>{payment.id}</code>\n"
+        f"<b>� Оплата покупки</b>\n\n"
+        f"Тариф: <b>Пополнение баланса</b>\n"
+        f"Сумма: <b>{ton_amount} TON</b> ({amount} RUB)\n\n"
+        f"💳 Выберите удобный способ оплаты:\n\n"
+        f"Комментарий (ОБЯЗАТЕЛЬНО): <code>{payment.id}</code>"
     )
     if isinstance(callback.message, Message):
         await safe_edit(callback.message, text, reply_markup=keyboard)
