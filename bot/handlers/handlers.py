@@ -1067,7 +1067,7 @@ async def process_pay_ton(callback: CallbackQuery, db: AsyncSession):
         f"<tg-emoji emoji-id=\"5429405838345265327\">📥</tg-emoji> <b>Адрес для перевода:</b>\n"
         f"<code>UQBO9ldjh-Z8h4PimediLifI5n-QSSf7lg6ND9itKamL1e97</code>\n\n"
         f"<tg-emoji emoji-id=\"5420323339723881652\">💬</tg-emoji> Комментарий (ОБЯЗАТЕЛЬНО): <code>{payment.id}</code>\n\n"
-        f"Перед переводом обязательно проверьте сумму, она должна совпадать с указанной выше <tg-emoji emoji-id=\"5274099962655816924\">⚠️</tg-emoji>\n\n"
+        f"<b>Перед переводом обязательно проверьте сумму, она должна совпадать с указанной выше</b> <tg-emoji emoji-id=\"5274099962655816924\">⚠️</tg-emoji>\n\n"
         f"Нажмите на кнопку ниже или переведите вручную с указанием комментария"
     )
     if isinstance(callback.message, Message):
