@@ -640,7 +640,7 @@ async def process_dep_sbp(callback: CallbackQuery, db: AsyncSession):
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(icon_custom_emoji_id="5265074015868822600", text="Оплатить через СБП", url=pay_url)],
-        [InlineKeyboardButton(icon_custom_emoji_id="5346300789558101141", text="Проверить оплату", callback_data=f"check_pay_{payment.id}")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5346300789558101141", text="Проверить оплату", callback_data=f"check_pay_{payment.id}", style="danger")],
         [InlineKeyboardButton(icon_custom_emoji_id="5258236805890710909", text="Назад", callback_data=f"dep_amt_{amount}")]
     ])
     
@@ -685,7 +685,7 @@ async def process_dep_cryptobot(callback: CallbackQuery, db: AsyncSession):
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(icon_custom_emoji_id="5361836987642815474", text="Оплатить", url=invoice["pay_url"])],
-        [InlineKeyboardButton(icon_custom_emoji_id="5346300789558101141", text="Проверить оплату", callback_data=f"check_pay_{invoice['invoice_id']}")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5346300789558101141", text="Проверить оплату", callback_data=f"check_pay_{invoice['invoice_id']}", style="danger")],
         [InlineKeyboardButton(icon_custom_emoji_id="5258236805890710909", text="Назад", callback_data=f"dep_amt_{amount}")]
     ])
     
@@ -759,7 +759,7 @@ async def process_dep_stars(callback: CallbackQuery, db: AsyncSession):
             payload=f"stars_{user.id}_dep_{amount}",
             provider_token="",
             currency="XTR",
-            prices=[LabeledPrice(label="Пополнение", amount=amount)]
+            prices=[LabeledPrice(label=f"Пополнение на {amount} RUB", amount=amount)]
         )
     await callback.answer()
 
@@ -788,7 +788,7 @@ async def process_dep_ton(callback: CallbackQuery, db: AsyncSession):
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(icon_custom_emoji_id="5377620962390857342", text="Открыть TON Кошелек", url=pay_url)],
-        [InlineKeyboardButton(icon_custom_emoji_id="5346300789558101141", text="Проверить оплату", callback_data=f"check_pay_{payment.id}")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5346300789558101141", text="Проверить оплату", callback_data=f"check_pay_{payment.id}", style="danger")],
         [InlineKeyboardButton(icon_custom_emoji_id="5258236805890710909", text="Назад", callback_data=f"dep_amt_{amount}")]
     ])
     
@@ -937,7 +937,7 @@ async def process_pay_cryptobot(callback: CallbackQuery, db: AsyncSession):
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(icon_custom_emoji_id="5361836987642815474", text="Оплатить", url=invoice["pay_url"])],
-        [InlineKeyboardButton(icon_custom_emoji_id="5346300789558101141", text="Проверить оплату", callback_data=f"check_pay_{invoice['invoice_id']}")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5346300789558101141", text="Проверить оплату", callback_data=f"check_pay_{invoice['invoice_id']}", style="danger")],
         [InlineKeyboardButton(icon_custom_emoji_id="5258236805890710909", text="Назад", callback_data=f"pay_order_{plan_id}")]
     ])
     
@@ -970,7 +970,7 @@ async def process_pay_stars(callback: CallbackQuery, db: AsyncSession):
             payload=f"stars_{user.id}_{plan_id}",
             provider_token="",
             currency="XTR",
-            prices=[LabeledPrice(label="Оплата", amount=stars_amount)]
+            prices=[LabeledPrice(label=f"Подписка на {plan_id} дней", amount=stars_amount)]
         )
     await callback.answer()
 
@@ -1010,7 +1010,7 @@ async def process_pay_sbp(callback: CallbackQuery, db: AsyncSession):
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(icon_custom_emoji_id="5265074015868822600", text="Оплатить через СБП", url=pay_url)],
-        [InlineKeyboardButton(icon_custom_emoji_id="5346300789558101141", text="Проверить оплату", callback_data=f"check_pay_{payment.id}")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5346300789558101141", text="Проверить оплату", callback_data=f"check_pay_{payment.id}", style="danger")],
         [InlineKeyboardButton(icon_custom_emoji_id="5258236805890710909", text="Назад", callback_data=f"pay_order_{plan_id}")]
     ])
     
@@ -1056,7 +1056,7 @@ async def process_pay_ton(callback: CallbackQuery, db: AsyncSession):
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(icon_custom_emoji_id="5377620962390857342", text="Открыть TON Кошелек", url=pay_url)],
-        [InlineKeyboardButton(icon_custom_emoji_id="5346300789558101141", text="Проверить оплату", callback_data=f"check_pay_{payment.id}")],
+        [InlineKeyboardButton(icon_custom_emoji_id="5346300789558101141", text="Проверить оплату", callback_data=f"check_pay_{payment.id}", style="danger")],
         [InlineKeyboardButton(icon_custom_emoji_id="5258236805890710909", text="Назад", callback_data=f"pay_order_{plan_id}")]
     ])
     
