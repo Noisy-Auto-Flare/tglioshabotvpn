@@ -1020,7 +1020,7 @@ async def process_pay_stars(callback: CallbackQuery, db: AsyncSession):
     if isinstance(callback.message, Message):
         await callback.message.answer_invoice(
             title=f"VPN: {plan['label']}",
-            description=f"Подписка на {plan_id} дней",
+            description=f"<tg-emoji emoji-id=\"5438496463044752972\">⏳</tg-emoji> <b>Оплата подписки на {plan_id} дней</b>",
             payload=f"stars_{user.id}_{plan_id}",
             provider_token="",
             currency="XTR",
