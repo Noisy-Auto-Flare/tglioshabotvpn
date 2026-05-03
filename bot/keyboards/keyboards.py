@@ -33,7 +33,6 @@ def get_payment_methods(plan_id: str) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(icon_custom_emoji_id="5931368295545443065", text="Оплатить с баланса", callback_data=f"pay_balance_{plan_id}", style="danger")],
         [InlineKeyboardButton(icon_custom_emoji_id="5240368741211980660", text="СБП (рубли)", callback_data=f"pay_sbp_{plan_id}", style="danger")],
         [InlineKeyboardButton(icon_custom_emoji_id="5397597950501204351", text="CryptoBot", callback_data=f"pay_cryptobot_{plan_id}")],
-        [InlineKeyboardButton(icon_custom_emoji_id="5345837435601305335", text="CryptoMus", callback_data=f"pay_cryptomus_{plan_id}")],
         [InlineKeyboardButton(icon_custom_emoji_id="5438496463044752972", text="Telegram Stars", callback_data=f"pay_stars_{plan_id}")],
         [InlineKeyboardButton(icon_custom_emoji_id="5377620962390857342", text="TON Connect", callback_data=f"pay_ton_{plan_id}")],
         [InlineKeyboardButton(icon_custom_emoji_id="5258236805890710909", text="Назад", callback_data="tariff_list")]
@@ -53,7 +52,6 @@ def get_deposit_payment_methods(amount: int) -> InlineKeyboardMarkup:
     keyboard = [
         [InlineKeyboardButton(icon_custom_emoji_id="5240368741211980660", text="СБП (рубли)", callback_data=f"dep_sbp_{amount}", style="danger")],
         [InlineKeyboardButton(icon_custom_emoji_id="5397597950501204351", text="CryptoBot", callback_data=f"dep_cryptobot_{amount}")],
-        [InlineKeyboardButton(icon_custom_emoji_id="5345837435601305335", text="CryptoMus", callback_data=f"dep_cryptomus_{amount}")],
         [InlineKeyboardButton(icon_custom_emoji_id="5438496463044752972", text="Telegram Stars", callback_data=f"dep_stars_{amount}")],
         [InlineKeyboardButton(icon_custom_emoji_id="5377620962390857342", text="TON Connect", callback_data=f"dep_ton_{amount}")],
         [InlineKeyboardButton(icon_custom_emoji_id="5258236805890710909", text="Назад", callback_data="deposit_menu")]

@@ -214,8 +214,44 @@ async def cmd_start(message: Message, db: AsyncSession):
     
     user = await _get_user_by_tg(db, message.from_user.id)
     
-    # ... (existing referral logic) ...
-    if not user:
+    # Check if user is new and has a referral code
+    if not user and message.text and len(message.text.split()) > 1:
+        ref_code = message.text.split()[1]
+        referral_code = str(uuid.uuid4())[:8]
+        referred_by = None
+        
+        ref_stmt = select(User).where(User.referral_code == ref_code)
+        inviter = (await db.execute(ref_stmt)).scalar_one_or_none()
+        
+        if inviter:
+            referred_by = inviter.id
+            notification_msg = (
+                f"<tg-emoji emoji-id=\"5222444124698853913\">👥</tg-emoji> <b>По вашей ссылке перешел новый пользователь!</b>\n\n"
+                f"Вы получите <b>+2 дня</b> подписки, когда ваш друг совершит свою первую покупку."
+            )
+
+            # Notify inviter
+            if message.bot:
+                try:
+                    await message.bot.send_message(
+                        inviter.telegram_id,
+                        notification_msg,
+                        parse_mode="HTML"
+                    )
+                except Exception:
+                    pass
+        
+        # Create user immediately to save referral info
+        user = User(
+            telegram_id=message.from_user.id,
+            referral_code=referral_code,
+            referred_by=referred_by,
+        )
+        db.add(user)
+        await db.commit()
+        # Refresh user from DB
+        user = await _get_user_by_tg(db, message.from_user.id)
+    elif not user:
         referral_code = str(uuid.uuid4())[:8]
         user = User(
             telegram_id=message.from_user.id,
